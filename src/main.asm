@@ -21,19 +21,12 @@ EntryPoint:
     call CopyMem
 
 
-    ld hl, $98A5
+    ld de, $98a5
+    ld hl, DrawNumsRowStartAdr
+    call Ld_word_HL_DE
 
-    ld a, 0
-    ld [DrawNumsFlags], a
-
-    ld a, 18
-    ld [GenericCntr], a
-
+    ld hl, $98a5
     ld de, Puzzle0Start
-    ld a, [de]
-    
-    ld c, 4
-    ld b, 1
     call DrawRows12x12
 
     ; Turn the LCD on
@@ -77,100 +70,157 @@ Ld_DE_word_HL:
     ld d,a
     ret
 
-DrawRows12x12:
-    rrca 
+;reset HL to DrawNumsRowStartAdr and add 32 to HL
+SetHLNextRow:
+    ld  a, [DrawNumsRowStartAdr]
+    add a, 32
+    ld [DrawNumsRowStartAdr],a
+    ld l, a
 
+    ld a, [DrawNumsRowStartAdr+1]
+    adc a, 0
+    ld [DrawNumsRowStartAdr+1],a
+    ld h, a
+    ret
+
+CpHLCurrentRowStart:
+    ld a, [DrawNumsRowStartAdr]
+    cp a, l
+    jp Z, DrawRows12x12.SkipDrawNum;just an empty ret
+    ld  a, [DrawNumsRowStartAdr+1]
+    cp a, h
+    ret
+
+
+;de src, hl dst, c cntr, b cntr
+DrawRows12x12:
+    ld c, 4
+    ld b, 1
+    ld a, 0
+    
+    ld [DrawNumsState], a
+    ld a, 24
+    ld [GenericCntr], a
+    ld a, [de]
+    ld [ShiftedByte], a
+.Mainloop
+    ld a, [ShiftedByte]
+    rrca
     ld [ShiftedByte], a
 
-    jr C, .SkipDrawNum
+    call NC, .DrawNumTile
+
     ld a, b
-    ld [hld], a
-    ld b, 0
-.SkipDrawNum
-    inc b
+    adc a, 0
+    ld b, a
 
-    ld a, [ShiftedByte]
-    
     dec c
-    jr NZ, DrawRows12x12
 
-    ;check if in 4bit or 8bit read state
-    ;DrawNumsFlags: modes <-> bit0: 0 = 4bit, 1 = 8bit
-    ld a, [DrawNumsFlags]
-    bit 0, a; Z if zero
+    jr NZ, .Mainloop
+
+    ld a, [DrawNumsState]
 
     ld c, 8
-    jr Z, .Was4bitmode
-    ;was 8 bit mode so...
-    ;set bit0 to 0
+    inc de
+
+    cp a, 2
+    jr NZ, .NotState2
+    inc de
+.NotState2
+
+    ld a, [DrawNumsState]
+
+    cp a, 3
+    jr NZ, .NotState3
+    call SetHLNextRow
+    call .DrawNumTile
+
     ld c, 4
-    ;check if using 1st half or scnd half
-    ;bit1: 0 = 1st half, 1 = 2nd half
-    bit 1, a
+    ld a, 255
+    ld [DrawNumsState], a
+.NotState3
 
-    jr NZ, .Was2ndhalf
-    ;was 1st so...
+    ld a, [de]
+    ld [ShiftedByte], a 
+    
+    ld a, [DrawNumsState]
 
-    xor a, $3;toggle bit0 & bit1
-    ld [DrawNumsFlags], a
-
-    ld a, [GenericCntr];shouldn't the generic cntr start at 24? It detracts on every "chunk" 4bit or 8 bit nvm 18 is correct
-    dec a
-    ld [GenericCntr], a
-
+    cp a, 1
+    jr NZ, .NotState1
+    call SetHLNextRow
+    call .DrawNumTile
+    
+    ld c, 4
+    dec de
     dec de
     ld a, [de]
     swap a
-    jr DrawRows12x12; never ending on 1st half 4bit mode so no check needed
-.Was2ndhalf    
-    xor a, $3;toggle bit0 & bit1
-    ld c, 4
-    inc de
-    ld a, b
-    ld [hld], a
-    ld b, 0
-.Was4bitmode ;aaaaaaa
+    ld [ShiftedByte], a 
+.NotState1
 
-    bit 1, a;aaaaaa
+    ld a, [DrawNumsState]
+    inc a
+    ld [DrawNumsState], a
 
-    jr NZ, .Was2ndhalf;aaaaaa
+    ld a, [ShiftedByte]
+    add a, 0
+    jr Z, .SkipPut0Tile
+    ld [hl], 1
+    .SkipPut0Tile
 
-    xor a, $1;toggle bit0
-    ld [DrawNumsFlags], a
-
-    inc de
-
-    ld a, [GenericCntr]
+    ;one chunk less to go
+    ld  a, [GenericCntr]
     dec a
-    ld [GenericCntr], a
+    ld  [GenericCntr], a
 
-    ld a, [de]
-
-    jr NZ, DrawRows12x12
+    jr NZ, .Mainloop
 
     ret
+
+.DrawNumTile 
+    ld a, 1
+    xor a, b
+
+    jr Z, .SkipDrawNum
+    ld a, b
+    ld [hld], a
+    ld b, 1
+.SkipDrawNum
+    ret
+
+
 
 INCLUDE "./src/assets/TilesSet0.z80"
 
 Puzzle0Start:;12x12
-    db %0011_0111
-    db %0111_1111
-
+    db %0011_1101
+    db %1001_1101
     db %1111_0011
-    db %0001_1111
+
+    db %0000_1111
+    db %0001_0111
+    db %0011_0100
 
     db %0001_0111
     db %0001_0111
     db %0001_0111
+
+    db %0011_1101
+    db %1001_1101
+    db %1111_0011
+
+    db %0001_1111
     db %0001_0111
     db %0001_0111
+
     db %0001_0111
-    db %0001_0110
+    db %0001_0111
     db %0001_0111
 Puzzle0End:
 
 SECTION "VARS", WRAM0
     tmp16:dw
     ShiftedByte:db
-    DrawNumsFlags:db
+    DrawNumsState:db
     GenericCntr:db
+    DrawNumsRowStartAdr:dw
