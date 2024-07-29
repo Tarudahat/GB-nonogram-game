@@ -1,0 +1,4 @@
+SpriteTilesStart:
+    DB $E7,$E7,$81,$81,$81,$81,$00,$00
+    DB $00,$00,$81,$81,$81,$81,$E7,$E7
+SpriteTilesEnd:

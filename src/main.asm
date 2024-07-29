@@ -13,13 +13,21 @@ EntryPoint:
 
     call WaitVBlank
 
+    ;turn of lcd
     ld a, 0
     ld [rLCDC], a
+
+    call ClearOAM
 
     ld de, TilesStart
     ld hl, $9000
     ld bc, TilesEnd-TilesStart
     ;de src, hl dst, bc data size
+    call CopyMem
+
+    ld hl, $8000
+    ld de, SpriteTilesStart
+    ld bc, SpriteTilesEnd-SpriteTilesStart
     call CopyMem
 
     ld de, EmptyMap
@@ -50,14 +58,70 @@ EntryPoint:
     call DrawColumns12x12
 
     ; Turn the LCD on
-    ld a, LCDCF_ON | LCDCF_BGON; | LCDCF_OBJON
+    ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a
 
     ; During the first (blank) frame, initialize display registers
     ld a, %11100100
     ld [rBGP], a
-Done:
-    jr Done
+
+    ld a, %11100100
+    ld [rOBP0], a    
+
+    ld a, 7*8+8
+    ld [CursorPositionX], a
+    ld a, 7*8+16
+    ld [CursorPositionY], a
+
+Main:
+    call WaitVBlank
+    call UpdateBTNS
+
+    ld a, [CurrentBTNS]
+    ld b, a
+
+    dec a
+    jr C, Main
+
+    ld a, [CursorPositionY] 
+
+    bit 7, b;check if Down
+    jr Z, .NotDown
+    add a, 8
+.NotDown   
+
+    bit 6, b;check if Up
+    jr Z, .NotUp
+    sub a, 8
+.NotUp
+
+    ld [_OAMRAM], a
+    ld [CursorPositionY], a
+
+    ld a, [CursorPositionX] 
+
+    bit 5, b;check if Left
+    jr Z, .NotLeft
+    sub a, 8
+.NotLeft
+
+    bit 4, b;check if Right
+    jr Z, .NotRight
+    add a, 8
+.NotRight
+
+    ld [_OAMRAM+1], a
+
+    ld [CursorPositionX], a
+
+    ld de, 5000
+.CoolDown
+    dec de
+    ld a, e
+    or a, d
+    jr NZ, .CoolDown
+
+    jr Main
 
 WaitVBlank:
     ld a, [rLY]
@@ -76,24 +140,26 @@ CopyMem:
     jr NZ, CopyMem
     ret
 
-
-INCLUDE "./src/MoreHLinst.asm"
-INCLUDE "./src/DrawPuzzles.asm"
+INCLUDE "./src/input.asm"
+INCLUDE "./src/moreHLinst.asm"
+INCLUDE "./src/drawPuzzles.asm"
+INCLUDE "./src/sprites.asm"
 
 INCLUDE "./src/assets/TilesSet0.z80"
+INCLUDE "./src/assets/Sprites.z80"
 
 Puzzle0Start:;12x12
-    db %0001_0001
+    db %1001_0001
     db %1000_0000;_0001
-    db %1001_1111;_0001
+    db %1001_1111;_1001
 
-    db %0001_0001
-    db %1001_1111;_0001
-    db %1011_1111;_0001
+    db %1001_1001
+    db %1001_1111;_1001
+    db %1011_1111;_1001
     
-    db %0001_0001
-    db %1001_1111;_0001
-    db %1001_1111;_0001
+    db %1001_1001
+    db %1001_1111;_1001
+    db %1001_1111;_1001
     
     db %1001_0001
     db %1000_0000;_0001
@@ -118,3 +184,7 @@ SECTION "VARS", WRAM0
     DrawNumsState:db
     DrawNumstartAdr:dw
     DrawNumsPuzzleStartAdr:dw
+    CursorPositionY:db
+    CursorPositionX:db
+    CurrentBTNS:db
+    NewBTNS:db
