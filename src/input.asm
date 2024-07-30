@@ -19,13 +19,13 @@ UpdateBTNS:
     ld a, $30;stop reading BTNS
     ldh [$00], a
 
+    ld a, b
+    ld [NewBTNS], a
+
     ld a,[CurrentBTNS];get the pressed BTNS mask
     and a, b
     or a, b
     ld [CurrentBTNS], a
-
-    ld a, b
-    ld [NewBTNS], a
 
     ret
 

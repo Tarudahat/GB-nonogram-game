@@ -41,6 +41,7 @@ SetDrawNumstartAdr2HL:
     ret
 
 ;add 32 to HL
+;for when there aren't any 16bit registers free
 SetHLNextRow:
     ld a, l
     add a, 32

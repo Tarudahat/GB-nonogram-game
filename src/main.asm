@@ -64,35 +64,42 @@ EntryPoint:
     ; During the first (blank) frame, initialize display registers
     ld a, %11100100
     ld [rBGP], a
-
     ld a, %11100100
-    ld [rOBP0], a    
+    ld [rOBP0], a  
 
     ld a, 7*8+8
     ld [CursorPositionX], a
     ld a, 7*8+16
     ld [CursorPositionY], a
-
 Main:
     call WaitVBlank
     call UpdateBTNS
+ 
+
+    ld a, [GenericCntr]
+    cp 1
+    sbc 1 ; subtracts 1 if nonzero
+    ld [GenericCntr], a
+    jr nz, Main
+
+    ld a, 38
+    ld [GenericCntr], a
 
     ld a, [CurrentBTNS]
-    ld b, a
-
-    dec a
-    jr C, Main
+    ld b, a 
 
     ld a, [CursorPositionY] 
 
     bit 7, b;check if Down
     jr Z, .NotDown
     add a, 8
+    ld [PrevBTNS], a;watch out these make the bit that it wants 0 but it might make things weird later
 .NotDown   
 
     bit 6, b;check if Up
     jr Z, .NotUp
     sub a, 8
+    ld [PrevBTNS], a
 .NotUp
 
     ld [_OAMRAM], a
@@ -103,25 +110,66 @@ Main:
     bit 5, b;check if Left
     jr Z, .NotLeft
     sub a, 8
+    ld [PrevBTNS], a
 .NotLeft
 
     bit 4, b;check if Right
     jr Z, .NotRight
     add a, 8
+    ld [PrevBTNS], a
 .NotRight
 
     ld [_OAMRAM+1], a
 
     ld [CursorPositionX], a
 
-    ld de, 5000
-.CoolDown
-    dec de
-    ld a, e
-    or a, d
-    jr NZ, .CoolDown
 
-    jr Main
+
+    ;get the tile at the cursor's position
+    ;b posX, c posY
+    ld a, [CursorPositionX]
+
+    sub a, 8
+    ld b, a
+
+    ld a, [CursorPositionY]
+    sub a, 16
+    ld c, a
+
+    call PixelPosition2MapAdr
+
+
+
+    ld a, [NewBTNS]
+
+    bit 0, a;check if A
+    jr Z, .NotA
+
+    ld a, [PrevBTNS]
+    bit 0, a
+    jr NZ, .NotA
+
+    ld a, [hl]
+    ld [hl], $E
+    cp a, $0E;is empty??
+    jr NZ, .NotA
+    ld [hl], $F
+.NotA
+    ld a, [NewBTNS]
+    ld [PrevBTNS], a
+
+
+    ld a, %11100100
+    ld [rOBP0], a  
+    
+    ld a, [hl]
+    cp a, $0F
+    jp NZ, Main
+
+    ld a, %00011011
+    ld [rOBP0], a  
+
+    jp Main
 
 WaitVBlank:
     ld a, [rLY]
@@ -161,9 +209,9 @@ Puzzle0Start:;12x12
     db %1001_1111;_1001
     db %1001_1111;_1001
     
-    db %1001_0001
+    db %0101_0001
     db %1000_0000;_0001
-    db %1001_0000;_1001
+    db %1001_0000;_0101
     
     db %0001_0001
     db %1011_1001;_0001
@@ -175,7 +223,24 @@ Puzzle0Start:;12x12
 Puzzle0End:
 
 EmptyMap:
-    db 255, 0
+    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
 
 SECTION "VARS", WRAM0
     GenericCntr:db
@@ -188,3 +253,5 @@ SECTION "VARS", WRAM0
     CursorPositionX:db
     CurrentBTNS:db
     NewBTNS:db
+    PrevBTNS:db
+
