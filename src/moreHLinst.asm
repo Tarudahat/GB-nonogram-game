@@ -1,3 +1,16 @@
+Ld_HL_DE:
+    ld a, d
+    ld h, a
+    ld a, e
+    ld l, a
+    ret
+
+Ld_DE_HL:
+    ld a, h
+    ld d, a
+    ld a, l
+    ld e, a
+    ret
 
 ;load DE into a WORD at HL
 Ld_word_HL_DE:

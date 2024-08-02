@@ -4,6 +4,11 @@ SECTION "Header", ROM0[$100]
     jp EntryPoint
     ds $150 - @, 0
 
+;constants
+DEF DrawRowsStartAdr EQU $98a5
+DEF DrawColumnsStartAdr EQU $9891
+DEF FilledTileID EQU $13 
+
 EntryPoint:
     ; Shut down audio circuitry
 	ld a, 0
@@ -35,25 +40,43 @@ EntryPoint:
     ld bc, 1024
     call CopyMem
 
+    ;set current puzzle
+    ld de, Puzzle0Start
+    ld hl, CurrentPuzzle
+    call Ld_word_HL_DE
+
+
     ;draw num rows 
-    ld de, $98a5
+    ld de, DrawRowsStartAdr
     ld hl, DrawNumstartAdr
     call Ld_word_HL_DE
 
-    ld hl, $98a5
-    ld de, Puzzle0Start
+    ld hl, CurrentPuzzle
+    call Ld_DE_word_HL;ld de, [CurrentPuzzle]
+    ld hl, DrawRowsStartAdr
+
     call DrawRows12x12
     
     ;draw num columns
-    ld de, $9891
+    ld de, DrawColumnsStartAdr
     ld hl, DrawNumstartAdr
     call Ld_word_HL_DE
 
-    ld de, Puzzle0End-3
+
+    ld hl, CurrentPuzzle ;ld de, Puzzle0End-3
+    call Ld_DE_word_HL
+
+    ld a, e
+    add a, 15
+    ld e, a
+    ld a, d
+    adc a, 0
+    ld d, a 
+
     ld hl, DrawNumsPuzzleStartAdr
     call Ld_word_HL_DE
 
-    ld hl, $9891
+    ld hl, DrawColumnsStartAdr
 
     call DrawColumns12x12
 
@@ -67,12 +90,13 @@ EntryPoint:
     ld a, %11100100
     ld [rOBP0], a  
 
-    ld a, 7*8+8
+    ld a, 6*8+8
     ld [CursorPositionX], a
-    ld a, 7*8+16
+    ld a, 5*8+16
     ld [CursorPositionY], a
 Main:
     call WaitVBlank
+    
     call UpdateBTNS
  
 
@@ -82,7 +106,7 @@ Main:
     ld [GenericCntr], a
     jr nz, Main
 
-    ld a, 38
+    ld a, 5
     ld [GenericCntr], a
 
     ld a, [CurrentBTNS]
@@ -123,7 +147,9 @@ Main:
 
     ld [CursorPositionX], a
 
-
+    ;call CheckWin; TO DAMN SLOW
+    ld a, 5
+    ld [GenericCntr], a
 
     ;get the tile at the cursor's position
     ;b posX, c posY
@@ -138,8 +164,6 @@ Main:
 
     call PixelPosition2MapAdr
 
-
-
     ld a, [NewBTNS]
 
     bit 0, a;check if A
@@ -151,19 +175,33 @@ Main:
 
     ld a, [hl]
     ld [hl], $E
+
+    
     cp a, $0E;is empty??
     jr NZ, .NotA
-    ld [hl], $F
+    ld [hl], FilledTileID
 .NotA
+
+    ld a, [NewBTNS]
+
+    bit 1, a;check if B
+    jr Z, .NotB
+
+    ld a, [PrevBTNS]
+    bit 1, a
+    jr NZ, .NotB
+
+    ld [hl], $12
+.NotB
+
     ld a, [NewBTNS]
     ld [PrevBTNS], a
-
 
     ld a, %11100100
     ld [rOBP0], a  
     
     ld a, [hl]
-    cp a, $0F
+    cp a, FilledTileID
     jp NZ, Main
 
     ld a, %00011011
@@ -173,8 +211,12 @@ Main:
 
 WaitVBlank:
     ld a, [rLY]
+    cp 144
+    jr nc, WaitVBlank;continue when rLY == 144
+.Wait2MakeSure
+    ld a, [rLY]
     cp a, 144
-    jr C, WaitVBlank
+    jr C, .Wait2MakeSure;continue When rLY > 144 else wait for that to make sure 
     ret
 
 ;de src, hl dst, bc data size
@@ -222,6 +264,95 @@ Puzzle0Start:;12x12
     db %1000_0000;_0011
 Puzzle0End:
 
+CheckWin:
+    ;load WORD at HL into DE
+    ld hl, CurrentPuzzle
+    call Ld_DE_word_HL
+
+    ld hl, DrawColumnsStartAdr
+    ld bc, 32
+    add hl, bc
+
+    ld bc, 36
+
+    ld a, 4
+    ld [GenericCntr], a
+
+    ld a, 11
+    ld [GenericCntr2], a
+
+    ld a, [de]
+.SmallLoop
+    rra
+
+    ld [ShiftedByte], a;store the shifted byte for the next round
+
+    jr NC, .ShouldBeEmpty
+    call BusyWait4FreeVRAM
+    ;this puzzle tile should be filled in, is it?
+    ld a, [hl];put the current tile id in a
+    cp a, FilledTileID;is it?
+    jr Z, .AllIsFine
+    ret;it wasn't so stop checking
+.ShouldBeEmpty
+    ;this puzzle tile should be Empty, is it?
+    call BusyWait4FreeVRAM
+    ld a, [hl];put the current tile id in a
+    cp a, FilledTileID;is it?
+    jr NZ, .AllIsFine
+    ret;it wasn't so stop checking
+.AllIsFine
+    dec hl
+
+    ld a, [GenericCntr]
+    dec a
+    ld [GenericCntr], a 
+
+    ld a, [ShiftedByte]
+    jr NZ, .SmallLoop
+
+    ;Done with a 4 bit chunk
+    add hl, bc; check next row 
+
+    ld a, 4
+    ld [GenericCntr], a
+
+    ld a, [GenericCntr2]
+    bit 0, a
+    ;if GenericCntr2 was even ld a, [de] + swap a
+    ;if GenericCntr2 was uneven inc de x3 + ld a, [de]
+    jr NZ, .WasEven
+    ;was uneven
+    inc de
+    inc de
+    inc de
+    ld a, [de]
+    ld [ShiftedByte], a
+
+    jr .WasUneven
+.WasEven
+    ld a, [de]
+    swap a
+.WasUneven
+    ld [ShiftedByte], a
+
+    ld a, [GenericCntr2]
+    dec a
+    ld [GenericCntr2], a 
+
+    ld a, [ShiftedByte]
+    jr NZ, .SmallLoop
+
+    ld a, 8
+    ld [$9800], a
+    ret
+
+BusyWait4FreeVRAM:
+    ldh a, [rSTAT]
+    and a, STATF_BUSY
+    jr nz, BusyWait4FreeVRAM
+    ret
+
 EmptyMap:
     db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
     db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
@@ -249,9 +380,13 @@ SECTION "VARS", WRAM0
     DrawNumsState:db
     DrawNumstartAdr:dw
     DrawNumsPuzzleStartAdr:dw
+    
     CursorPositionY:db
     CursorPositionX:db
+    
     CurrentBTNS:db
     NewBTNS:db
     PrevBTNS:db
+
+    CurrentPuzzle:dw
 
