@@ -31,13 +31,19 @@ PixelPosition2MapAdr:
     srl a; /8
 
     add a, l;X/8 + (Y/8)*32 [lower byte of it]
+    ld [CursorTileOffset], a
     ld l, a;that's HL's new lower byte
     adc a, h;add higher byte of (Y/8)*32 + carry (+lower byte)
     sub a, l;(remove that lower byte)
+    ld [CursorTileOffset+1], a
     ld h, a;(put a into HL's High byte)
+
 
     ;add $9800
     ld bc, $9800
     add hl, bc
 
     ret
+
+
+

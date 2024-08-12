@@ -11,7 +11,7 @@ DEF FilledTileID EQU $13
 
 EntryPoint:
     ; Shut down audio circuitry
-	ld a, 0
+    xor a
 	ld [rNR52], a
     ;ld sp, $E000
 
@@ -19,7 +19,7 @@ EntryPoint:
     call WaitVBlank
 
     ;turn of lcd
-    ld a, 0
+    xor a
     ld [rLCDC], a
 
     call ClearOAM
@@ -99,19 +99,84 @@ Main:
     
     call UpdateBTNS
  
-
     ld a, [GenericCntr]
     cp 1
     sbc 1 ; subtracts 1 if nonzero
     ld [GenericCntr], a
     jr nz, Main
 
-    ld a, 5
+    ld a, 4
     ld [GenericCntr], a
 
+    ;get the tile at the cursor's position
+    ;b posX, c posY
+    ld a, [CursorPositionX]
+    ld [_OAMRAM+1], a
+
+    sub a, 8
+    ld b, a
+
+    ld a, [CursorPositionY]
+    ld [_OAMRAM], a
+
+    sub a, 16
+    ld c, a
+
+    call PixelPosition2MapAdr
+
+    ;make cursor white on filled tiles
+    ld a, %11100100
+    ld [rOBP0], a  
+
+    ld a, [hl]
+    cp a, FilledTileID
+    jr NZ, .NoInvertCursorPal
+
+    ld a, %00011011
+    ld [rOBP0], a  
+    .NoInvertCursorPal
+
+    ;check if A
+    ld a, [NewBTNS]
+
+    bit 0, a
+    jr Z, .NotA
+
+    ld a, [PrevBTNS]
+    bit 0, a
+    jr NZ, .NotA
+
+    call SetTileAtCursor2OGTile
+
+    cp a, FilledTileID;is not Filled in??
+    jr NC, .NotA
+    ld [hl], FilledTileID
+.NotA
+
+    ld a, [NewBTNS]
+
+    bit 1, a;check if B
+    jr Z, .NotB
+
+    ld a, [PrevBTNS]
+    bit 1, a
+    jr NZ, .NotB
+
+    call SetTileAtCursor2OGTile
+
+    cp a, $12;is not Filled in??
+    jr NC, .NotB
+    ld [hl], $12;put down X tile
+.NotB
+
+    ld a, [NewBTNS]
+    ld [PrevBTNS], a
+
+    ;load BTNS into b
     ld a, [CurrentBTNS]
     ld b, a 
 
+    ;move cursors with Dpad
     ld a, [CursorPositionY] 
 
     bit 7, b;check if Down
@@ -126,7 +191,6 @@ Main:
     ld [PrevBTNS], a
 .NotUp
 
-    ld [_OAMRAM], a
     ld [CursorPositionY], a
 
     ld a, [CursorPositionX] 
@@ -143,69 +207,9 @@ Main:
     ld [PrevBTNS], a
 .NotRight
 
-    ld [_OAMRAM+1], a
-
     ld [CursorPositionX], a
 
     ;call CheckWin; TO DAMN SLOW
-    ld a, 5
-    ld [GenericCntr], a
-
-    ;get the tile at the cursor's position
-    ;b posX, c posY
-    ld a, [CursorPositionX]
-
-    sub a, 8
-    ld b, a
-
-    ld a, [CursorPositionY]
-    sub a, 16
-    ld c, a
-
-    call PixelPosition2MapAdr
-
-    ld a, [NewBTNS]
-
-    bit 0, a;check if A
-    jr Z, .NotA
-
-    ld a, [PrevBTNS]
-    bit 0, a
-    jr NZ, .NotA
-
-    ld a, [hl]
-    ld [hl], $E
-
-    
-    cp a, $0E;is empty??
-    jr NZ, .NotA
-    ld [hl], FilledTileID
-.NotA
-
-    ld a, [NewBTNS]
-
-    bit 1, a;check if B
-    jr Z, .NotB
-
-    ld a, [PrevBTNS]
-    bit 1, a
-    jr NZ, .NotB
-
-    ld [hl], $12
-.NotB
-
-    ld a, [NewBTNS]
-    ld [PrevBTNS], a
-
-    ld a, %11100100
-    ld [rOBP0], a  
-    
-    ld a, [hl]
-    cp a, FilledTileID
-    jp NZ, Main
-
-    ld a, %00011011
-    ld [rOBP0], a  
 
     jp Main
 
@@ -217,6 +221,12 @@ WaitVBlank:
     ld a, [rLY]
     cp a, 144
     jr C, .Wait2MakeSure;continue When rLY > 144 else wait for that to make sure 
+    ret
+
+BusyWait4FreeVRAM:
+    ldh a, [rSTAT]
+    and a, STATF_BUSY
+    jr nz, BusyWait4FreeVRAM
     ret
 
 ;de src, hl dst, bc data size
@@ -237,6 +247,7 @@ INCLUDE "./src/sprites.asm"
 
 INCLUDE "./src/assets/TilesSet0.z80"
 INCLUDE "./src/assets/Sprites.z80"
+
 
 Puzzle0Start:;12x12
     db %1001_0001
@@ -264,113 +275,24 @@ Puzzle0Start:;12x12
     db %1000_0000;_0011
 Puzzle0End:
 
-CheckWin:
-    ;load WORD at HL into DE
-    ld hl, CurrentPuzzle
-    call Ld_DE_word_HL
-
-    ld hl, DrawColumnsStartAdr
-    ld bc, 32
-    add hl, bc
-
-    ld bc, 36
-
-    ld a, 4
-    ld [GenericCntr], a
-
-    ld a, 11
-    ld [GenericCntr2], a
-
-    ld a, [de]
-.SmallLoop
-    rra
-
-    ld [ShiftedByte], a;store the shifted byte for the next round
-
-    jr NC, .ShouldBeEmpty
-    call BusyWait4FreeVRAM
-    ;this puzzle tile should be filled in, is it?
-    ld a, [hl];put the current tile id in a
-    cp a, FilledTileID;is it?
-    jr Z, .AllIsFine
-    ret;it wasn't so stop checking
-.ShouldBeEmpty
-    ;this puzzle tile should be Empty, is it?
-    call BusyWait4FreeVRAM
-    ld a, [hl];put the current tile id in a
-    cp a, FilledTileID;is it?
-    jr NZ, .AllIsFine
-    ret;it wasn't so stop checking
-.AllIsFine
-    dec hl
-
-    ld a, [GenericCntr]
-    dec a
-    ld [GenericCntr], a 
-
-    ld a, [ShiftedByte]
-    jr NZ, .SmallLoop
-
-    ;Done with a 4 bit chunk
-    add hl, bc; check next row 
-
-    ld a, 4
-    ld [GenericCntr], a
-
-    ld a, [GenericCntr2]
-    bit 0, a
-    ;if GenericCntr2 was even ld a, [de] + swap a
-    ;if GenericCntr2 was uneven inc de x3 + ld a, [de]
-    jr NZ, .WasEven
-    ;was uneven
-    inc de
-    inc de
-    inc de
-    ld a, [de]
-    ld [ShiftedByte], a
-
-    jr .WasUneven
-.WasEven
-    ld a, [de]
-    swap a
-.WasUneven
-    ld [ShiftedByte], a
-
-    ld a, [GenericCntr2]
-    dec a
-    ld [GenericCntr2], a 
-
-    ld a, [ShiftedByte]
-    jr NZ, .SmallLoop
-
-    ld a, 8
-    ld [$9800], a
-    ret
-
-BusyWait4FreeVRAM:
-    ldh a, [rSTAT]
-    and a, STATF_BUSY
-    jr nz, BusyWait4FreeVRAM
-    ret
-
 EmptyMap:
     db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
     db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
     db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
     db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
     db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$10,$10,$10,$11,$10,$10,$10,$11,$10,$10,$10,$10,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0    
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$10,$10,$10,$11,$10,$10,$10,$11,$10,$10,$10,$10,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0    
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
     db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
 
 SECTION "VARS", WRAM0
@@ -384,9 +306,15 @@ SECTION "VARS", WRAM0
     CursorPositionY:db
     CursorPositionX:db
     
+    CursorPositionYInGrid:db
+    CursorPositionXInGrid:db
+
+
     CurrentBTNS:db
     NewBTNS:db
     PrevBTNS:db
 
+    CursorTileOffset:dw
+    OriginalTileID:db
     CurrentPuzzle:dw
-
+    PuzzleInMem:ds 18

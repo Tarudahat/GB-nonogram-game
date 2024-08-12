@@ -12,6 +12,20 @@ Ld_DE_HL:
     ld e, a
     ret
 
+Ld_HL_BC:
+    ld a, b
+    ld h, a
+    ld a, c
+    ld l, a
+    ret
+
+Ld_BC_HL:
+    ld a, h
+    ld b, a
+    ld a, l
+    ld c, a
+    ret
+
 ;load DE into a WORD at HL
 Ld_word_HL_DE:
     ld a,e
