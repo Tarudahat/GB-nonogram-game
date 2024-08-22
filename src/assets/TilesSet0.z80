@@ -49,4 +49,18 @@ TilesStart:
 
     DB $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff;full tile
     DB $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+
+    DB $00,$00,$66,$66,$99,$99,$81,$81;empty hart
+    DB $81,$81,$42,$42,$24,$24,$18,$18
+
+    DB $00,$00,$66,$66,$99,$FF,$A1,$DF;full hart
+    DB $91,$EF,$42,$7E,$24,$3C,$18,$18
+
+    DB $00,$00,$7E,$7E,$5A,$42,$24,$24;hourglass
+    DB $18,$18,$24,$24,$5A,$42,$7E,$7E
+
+    DB $50,$60,$50,$60,$50,$60,$50,$60;border tile right 
+    DB $50,$60,$50,$60,$50,$60,$50,$60
+    DB $0A,$06,$0A,$06,$0A,$06,$0A,$06;border tile left
+    DB $0A,$06,$0A,$06,$0A,$06,$0A,$06
 TilesEnd:   

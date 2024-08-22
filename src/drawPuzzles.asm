@@ -256,29 +256,3 @@ DrawColumns12x12:
     ret 
 
 
-;eats a, b, d, e
-SetTileAtCursor2OGTile:
-    ;load tileID at cursor into a
-    ;check is filled in -> yes -> replace with TileID at 
-    ld a, [hl]
-    ld b, a;store tileID at cursor in b
-
-    ;load empty tileID from "EmptyMap" into tile
-    ld hl, CursorTileOffset
-    call Ld_DE_word_HL
-    ld hl, EmptyMap
-    add hl, de
-
-    ld a, [hl]
-    ld [OriginalTileID], a
-
-    ;set hl back to proper VRAM adr
-    ld hl, CursorTileOffset
-    call Ld_DE_word_HL
-    ld hl, $9800
-    add hl, de
-
-    ld a, [OriginalTileID]
-    ld [hl], a
-    ld a, b
-    ret

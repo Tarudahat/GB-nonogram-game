@@ -40,6 +40,11 @@ EntryPoint:
     ld bc, 1024
     call CopyMem
 
+    ld de, EmptyMap
+    ld hl, PuzzleInMem
+    ld bc, 18
+    call CopyMem
+
     ;set current puzzle
     ld de, Puzzle0Start
     ld hl, CurrentPuzzle
@@ -94,19 +99,25 @@ EntryPoint:
     ld [CursorPositionX], a
     ld a, 5*8+16
     ld [CursorPositionY], a
+    xor a
+    ld [CursorGridPositionX], a
+    ld [CursorGridPositionY], a
+
+    ld a, 5
+    ld [FrameCntr], a
 Main:
     call WaitVBlank
     
     call UpdateBTNS
  
-    ld a, [GenericCntr]
+    ld a, [FrameCntr]
     cp 1
     sbc 1 ; subtracts 1 if nonzero
-    ld [GenericCntr], a
+    ld [FrameCntr], a
     jr nz, Main
 
-    ld a, 4
-    ld [GenericCntr], a
+    ld a, 5
+    ld [FrameCntr], a
 
     ;get the tile at the cursor's position
     ;b posX, c posY
@@ -164,10 +175,19 @@ Main:
 
     call SetTileAtCursor2OGTile
 
-    cp a, $12;is not Filled in??
+    cp a, FilledTileID
+    jr NZ, .NoPutX
+    ld [hl], $12
+.NoPutX
+    cp a, $12;is not X-ed??
     jr NC, .NotB
     ld [hl], $12;put down X tile
 .NotB
+    call SetPuzzleBit
+
+    ;free up c for keeping
+    ld a, [CursorGridPositionY]
+    ld c, a
 
     ld a, [NewBTNS]
     ld [PrevBTNS], a
@@ -181,34 +201,46 @@ Main:
 
     bit 7, b;check if Down
     jr Z, .NotDown
+    inc c
     add a, 8
     ld [PrevBTNS], a;watch out these make the bit that it wants 0 but it might make things weird later
 .NotDown   
 
     bit 6, b;check if Up
     jr Z, .NotUp
+    dec c
     sub a, 8
     ld [PrevBTNS], a
 .NotUp
 
     ld [CursorPositionY], a
+    ld a, c
+    ld [CursorGridPositionY], a
+    
+
+    ld a, [CursorGridPositionX]
+    ld c, a
 
     ld a, [CursorPositionX] 
 
     bit 5, b;check if Left
     jr Z, .NotLeft
+    dec c
     sub a, 8
     ld [PrevBTNS], a
 .NotLeft
 
     bit 4, b;check if Right
     jr Z, .NotRight
+    inc c
     add a, 8
     ld [PrevBTNS], a
 .NotRight
 
     ld [CursorPositionX], a
-
+    ld a, c
+    ld [CursorGridPositionX], a
+    ld c, 0
     ;call CheckWin; TO DAMN SLOW
 
     jp Main
@@ -244,6 +276,7 @@ INCLUDE "./src/input.asm"
 INCLUDE "./src/moreHLinst.asm"
 INCLUDE "./src/drawPuzzles.asm"
 INCLUDE "./src/sprites.asm"
+INCLUDE "./src/handlePuzzles.asm"
 
 INCLUDE "./src/assets/TilesSet0.z80"
 INCLUDE "./src/assets/Sprites.z80"
@@ -275,40 +308,42 @@ Puzzle0Start:;12x12
     db %1000_0000;_0011
 Puzzle0End:
 
+
+;9842
 EmptyMap:
-    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$10,$10,$10,$11,$10,$10,$10,$11,$10,$10,$10,$10,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0    
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$10,$10,$10,$11,$10,$10,$10,$11,$10,$10,$10,$10,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0    
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
-    db $0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0
+    db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$15,$15,$15,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$16,$4,$2,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$10,$10,$10,$11,$10,$10,$10,$11,$10,$10,$10,$10,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0    
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$10,$10,$10,$11,$10,$10,$10,$11,$10,$10,$10,$10,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0    
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
+    db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
 
 SECTION "VARS", WRAM0
     GenericCntr:db
     GenericCntr2:db
+    FrameCntr:db
+
     ShiftedByte:db
     DrawNumsState:db
     DrawNumstartAdr:dw
     DrawNumsPuzzleStartAdr:dw
-    
+
     CursorPositionY:db
     CursorPositionX:db
-    
-    CursorPositionYInGrid:db
-    CursorPositionXInGrid:db
-
+    CursorGridPositionY:db
+    CursorGridPositionX:db
 
     CurrentBTNS:db
     NewBTNS:db
