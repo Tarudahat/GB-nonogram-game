@@ -8,13 +8,26 @@ SECTION "Header", ROM0[$100]
 DEF DrawRowsStartAdr EQU $98a5
 DEF DrawColumnsStartAdr EQU $9891
 DEF FilledTileID EQU $13 
+DEF TimerTileAdr EQU $9864
 
 EntryPoint:
-    ; Shut down audio circuitry
-    xor a
-	ld [rNR52], a
-    ;ld sp, $E000
+    ;setup interupt handlers
+    ei;Enable Interrupts
+    nop
 
+    ;Setup timer registers
+    ld a, %0000_0100
+    ldh [$FF07], a;set TIMA incrementation rate to 4096Hz
+    xor a
+    ldh [$FF06], a;set Timer modulo to 0 so the Timer interupt will be requested every 1/16th of a sec
+    
+    xor a
+    ld [TimerCntr16thSec],a
+    ;ld a, 60
+    ld [TimerDownSec], a
+
+    ; Shut down audio circuitry
+	ld [rNR52], a
 
     call WaitVBlank
 
@@ -41,8 +54,8 @@ EntryPoint:
     call CopyMem
 
     ld de, EmptyMap
-    ld hl, PuzzleInMem
-    ld bc, 18
+    ld hl, PuzzleInMem-1
+    ld bc, 19
     call CopyMem
 
     ;set current puzzle
@@ -106,10 +119,52 @@ EntryPoint:
     ld a, 5
     ld [FrameCntr], a
 Main:
+    ;update timer
+    ;check if Timer intr is requested
+    ldh a, [$FF0F]
+    bit 2, a
+    jr z, .TimerIntrNotRequested
+    
+    ld a, [TimerCntr16thSec]
+    inc a
+    
+    cp a, 15;maybe set to 16?
+    jr nz, .NoIncSecCntr
+    
+    ld a, [TimerDownSec]
+    inc a
+    ld [TimerDownSec], a
+    
+    ;cp a, 0
+    ;jr nz, .ResetTimerTo60
+    ;ld a, 60
+    ;ld [TimerDownSec], a
+;.ResetTimerTo60
+
+    xor a
+.NoIncSecCntr
+    ld [TimerCntr16thSec], a
+    ldh a, [$FF0F]
+    and a, %1111_1011;reset the Timer intrpt
+    ldh [$FF0F], a
+.TimerIntrNotRequested
     call WaitVBlank
     
     call UpdateBTNS
  
+    ld a, [TimerDownSec]
+    ld b, a
+    daa
+    and a, $0F
+    inc a
+    ld [TimerTileAdr], a
+    ld a, b
+    daa
+    and a, $F0
+    swap a
+    inc a
+    ld [TimerTileAdr-1], a
+
     ld a, [FrameCntr]
     cp 1
     sbc 1 ; subtracts 1 if nonzero
@@ -162,6 +217,8 @@ Main:
     cp a, FilledTileID;is not Filled in??
     jr NC, .NotA
     ld [hl], FilledTileID
+    
+    call SetPuzzleBit
 .NotA
 
     ld a, [NewBTNS]
@@ -183,7 +240,6 @@ Main:
     jr NC, .NotB
     ld [hl], $12;put down X tile
 .NotB
-    call SetPuzzleBit
 
     ;free up c for keeping
     ld a, [CursorGridPositionY]
@@ -241,37 +297,10 @@ Main:
     ld a, c
     ld [CursorGridPositionX], a
     ld c, 0
-    ;call CheckWin; TO DAMN SLOW
 
     jp Main
 
-WaitVBlank:
-    ld a, [rLY]
-    cp 144
-    jr nc, WaitVBlank;continue when rLY == 144
-.Wait2MakeSure
-    ld a, [rLY]
-    cp a, 144
-    jr C, .Wait2MakeSure;continue When rLY > 144 else wait for that to make sure 
-    ret
-
-BusyWait4FreeVRAM:
-    ldh a, [rSTAT]
-    and a, STATF_BUSY
-    jr nz, BusyWait4FreeVRAM
-    ret
-
-;de src, hl dst, bc data size
-CopyMem:
-    ld a, [de]
-    inc de
-    ld [hli],a
-    dec bc;one less byte
-    ld a, b
-    or a, c
-    jr NZ, CopyMem
-    ret
-
+INCLUDE "./src/miscFunctions.asm"
 INCLUDE "./src/input.asm"
 INCLUDE "./src/moreHLinst.asm"
 INCLUDE "./src/drawPuzzles.asm"
@@ -295,12 +324,12 @@ Puzzle0Start:;12x12
     db %1001_1111;_1001
     db %1001_1111;_1001
     
-    db %0101_0001
-    db %1000_0000;_0001
-    db %1001_0000;_0101
-    
     db %0001_0001
-    db %1011_1001;_0001
+    db %1000_0000;_0001
+    db %1001_0000;_0001
+    
+    db %0001_0101
+    db %1011_1001;_0101
     db %1001_0000;_0001
     
     db %0011_0001
@@ -330,26 +359,33 @@ EmptyMap:
     db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
     db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
 
-SECTION "VARS", WRAM0
+SECTION "GENERIC_VARS", WRAM0
     GenericCntr:db
     GenericCntr2:db
     FrameCntr:db
 
+SECTION "TIMER_VARS", WRAM0
+    TimerDownSec:db
+    TimerCntr16thSec:db
+
+SECTION "PUZZLE_DRAWING_VARS", WRAM0
     ShiftedByte:db
     DrawNumsState:db
     DrawNumstartAdr:dw
     DrawNumsPuzzleStartAdr:dw
 
+SECTION "CURSOR_VARS", WRAM0
     CursorPositionY:db
     CursorPositionX:db
     CursorGridPositionY:db
     CursorGridPositionX:db
+    CursorTileOffset:dw
 
+SECTION "INPUT_VARS", WRAM0
     CurrentBTNS:db
     NewBTNS:db
     PrevBTNS:db
 
-    CursorTileOffset:dw
     OriginalTileID:db
     CurrentPuzzle:dw
     PuzzleInMem:ds 18

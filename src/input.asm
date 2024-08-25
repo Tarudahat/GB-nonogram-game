@@ -13,7 +13,8 @@ UpdateBTNS:
 
     and $0F
     or a, b
-    xor a, $FF
+    cpl;xor a, $FF
+    
     ld b, a
 
     ld a, $30;stop reading BTNS

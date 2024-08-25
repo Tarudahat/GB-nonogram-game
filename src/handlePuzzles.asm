@@ -30,14 +30,20 @@ SetTileAtCursor2OGTile:
 SetPuzzleBit:
     ld a, [CursorGridPositionY]
     ld b, a
+    inc b
     ld a, [CursorGridPositionX]
-    
+    ld d, a
+
     ld hl, PuzzleInMem
     
     cp a, 8
-    ld c, 2
+    ld c, 3
     jr nc, .Bit4Mode
-    inc c
+
+    ;8bit chunk
+    ld a, 9
+    sub a, d
+    ld d, a
 
 .LoopTillCorrectByte
     dec c
@@ -52,7 +58,6 @@ SetPuzzleBit:
     
     jr .GetBit;correct byte got
 
-
 .Bit4Mode
     dec c
     jr nz, .StayOnCrntChunk
@@ -63,11 +68,38 @@ SetPuzzleBit:
 .StayOnCrntChunk
     dec b
     jr NZ, .Bit4Mode
-    
+
+    ld a, [CursorGridPositionY]
+    ld b, a
+
+    ;4bit chunk
+    ld a, 11
+    ;if uneven row, ld a, 8
+    bit 0, b
+    jr z, .IsEven
+    ld a, 15
+.IsEven
+
+    sub a, d
+    ld d, a
+    inc d
+    inc d
 .GetBit
     ;got the correct byte
     ;now egt correct bit
-    ld [hl], 69
+    ld a, %1000_0000
+.GetBitLoop
+    rla
+    dec d
+    jr nz, .GetBitLoop
+
+    ld d, a
+
+    ld a, [hl]
+    or a, d;ññññ should be xor but cursor bs has to be fixed first
+    ld [hl], a
+
+    
     ret 
 
 
