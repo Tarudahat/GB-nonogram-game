@@ -9,6 +9,7 @@ DEF DrawRowsStartAdr EQU $98a5
 DEF DrawColumnsStartAdr EQU $9891
 DEF FilledTileID EQU $13 
 DEF TimerTileAdr EQU $9864
+DEF InputCD EQU 9
 
 EntryPoint:
     ;setup interupt handlers
@@ -25,11 +26,14 @@ EntryPoint:
     ld [TimerCntr16thSec],a
     ;ld a, 60
     ld [TimerDownSec], a
+    ld a, InputCD
+    ld [FrameCntr], a
+
 
     ; Shut down audio circuitry
 	ld [rNR52], a
 
-    call WaitVBlank
+    call WaitStartVBlank
 
     ;turn of lcd
     xor a
@@ -62,7 +66,6 @@ EntryPoint:
     ld de, Puzzle0Start
     ld hl, CurrentPuzzle
     call Ld_word_HL_DE
-
 
     ;draw num rows 
     ld de, DrawRowsStartAdr
@@ -116,8 +119,6 @@ EntryPoint:
     ld [CursorGridPositionX], a
     ld [CursorGridPositionY], a
 
-    ld a, 5
-    ld [FrameCntr], a
 Main:
     ;update timer
     ;check if Timer intr is requested
@@ -148,10 +149,28 @@ Main:
     and a, %1111_1011;reset the Timer intrpt
     ldh [$FF0F], a
 .TimerIntrNotRequested
-    call WaitVBlank
+
+    ;check if win
+    ;de src0, hl src1, bc data size
+    ld hl, CurrentPuzzle
+    call Ld_DE_word_HL
+    ld hl, PuzzleInMem
+    ld bc, 18
+    call CpMem
     
     call UpdateBTNS
+
+    call WaitStartVBlank
+
+    ;count down the input cooldown timer
+    ld a, [FrameCntr]
+    dec a
+    jr z, .NoCountDown_FrameCntr
+    ld [FrameCntr], a
+    .NoCountDown_FrameCntr
+
  
+    ;draw the timer
     ld a, [TimerDownSec]
     ld b, a
     daa
@@ -165,88 +184,25 @@ Main:
     inc a
     ld [TimerTileAdr-1], a
 
+    ;handle input delay
     ld a, [FrameCntr]
-    cp 1
-    sbc 1 ; subtracts 1 if nonzero
-    ld [FrameCntr], a
-    jr nz, Main
-
-    ld a, 5
-    ld [FrameCntr], a
-
-    ;get the tile at the cursor's position
-    ;b posX, c posY
-    ld a, [CursorPositionX]
-    ld [_OAMRAM+1], a
-
-    sub a, 8
-    ld b, a
-
-    ld a, [CursorPositionY]
-    ld [_OAMRAM], a
-
-    sub a, 16
-    ld c, a
-
-    call PixelPosition2MapAdr
-
-    ;make cursor white on filled tiles
-    ld a, %11100100
-    ld [rOBP0], a  
-
-    ld a, [hl]
-    cp a, FilledTileID
-    jr NZ, .NoInvertCursorPal
-
-    ld a, %00011011
-    ld [rOBP0], a  
-    .NoInvertCursorPal
-
-    ;check if A
-    ld a, [NewBTNS]
-
-    bit 0, a
-    jr Z, .NotA
-
-    ld a, [PrevBTNS]
-    bit 0, a
-    jr NZ, .NotA
-
-    call SetTileAtCursor2OGTile
-
-    cp a, FilledTileID;is not Filled in??
-    jr NC, .NotA
-    ld [hl], FilledTileID
-    
-    call SetPuzzleBit
-.NotA
+    dec a
+    jp nz, Main
 
     ld a, [NewBTNS]
-
-    bit 1, a;check if B
-    jr Z, .NotB
-
-    ld a, [PrevBTNS]
-    bit 1, a
-    jr NZ, .NotB
-
-    call SetTileAtCursor2OGTile
-
-    cp a, FilledTileID
-    jr NZ, .NoPutX
-    ld [hl], $12
-.NoPutX
-    cp a, $12;is not X-ed??
-    jr NC, .NotB
-    ld [hl], $12;put down X tile
-.NotB
+    ;check if BTN
+    cp a, 0
+    jr z, .NoSetCD
+    ld a, [FrameCntr]
+    cp a, 1
+    jr nz, .NoSetCD
+    ld a, InputCD
+    ld [FrameCntr], a;temp
+.NoSetCD
 
     ;free up c for keeping
     ld a, [CursorGridPositionY]
     ld c, a
-
-    ld a, [NewBTNS]
-    ld [PrevBTNS], a
 
     ;load BTNS into b
     ld a, [CurrentBTNS]
@@ -297,6 +253,91 @@ Main:
     ld a, c
     ld [CursorGridPositionX], a
     ld c, 0
+
+    ;get the tile at the cursor's position
+    ;b posX, c posY
+    ld a, [CursorPositionX]
+    ld [_OAMRAM+1], a
+
+    sub a, 8
+    ld b, a
+
+    ld a, [CursorPositionY]
+    ld [_OAMRAM], a
+
+    sub a, 16
+    ld c, a
+
+    call PixelPosition2MapAdr
+
+    call WaitVBlank
+
+    ld a, [hl]
+    ld [CurrentTile], a
+
+    ;check if A
+    ld a, [NewBTNS]
+
+    bit 0, a
+    jr Z, .NotA
+
+    ld a, [PrevBTNS]
+    bit 0, a
+    jr NZ, .NotA
+
+    xor a
+    ld [CurrentTile], a
+
+    call SetTileAtCursor2OGTile
+
+    cp a, FilledTileID;is not Filled in??
+    jr NC, .NotA
+    ld [hl], FilledTileID
+
+    ld a, FilledTileID
+    ld [CurrentTile], a
+
+    call SetPuzzleBit
+.NotA
+
+    ld a, [NewBTNS]
+
+    bit 1, a;check if B
+    jr Z, .NotB
+
+    ld a, [PrevBTNS]
+    bit 1, a
+    jr NZ, .NotB
+
+    call SetTileAtCursor2OGTile
+
+    cp a, FilledTileID
+    jr NZ, .NoPutX
+    ld [hl], $12
+    ld a, $12
+    ld [CurrentTile], a
+.NoPutX
+    cp a, $12;is not X-ed??
+    jr NC, .NotB
+    ld [hl], $12;put down X tile
+    ld a, $12
+    ld [CurrentTile], a
+.NotB
+
+    ;make cursor white on filled tiles
+    ld a, %11100100
+    ld [rOBP0], a  
+
+    ld a, [CurrentTile]
+    cp a, FilledTileID
+    jr NZ, .NoInvertCursorPal
+
+    ld a, %00011011
+    ld [rOBP0], a  
+    .NoInvertCursorPal
+    
+    ld a, [NewBTNS]
+    ld [PrevBTNS], a
 
     jp Main
 
@@ -386,6 +427,8 @@ SECTION "INPUT_VARS", WRAM0
     NewBTNS:db
     PrevBTNS:db
 
+SECTION "PUZZLE_VARS", WRAM0
+    CurrentTile:db
     OriginalTileID:db
     CurrentPuzzle:dw
     PuzzleInMem:ds 18

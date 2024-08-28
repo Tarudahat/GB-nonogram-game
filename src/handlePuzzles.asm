@@ -98,47 +98,5 @@ SetPuzzleBit:
     ld a, [hl]
     or a, d;ññññ should be xor but cursor bs has to be fixed first
     ld [hl], a
-
     
     ret 
-
-
-
-
-
-    ;ld [CursorGridPositionX], a
-    ;ld [CursorGridPositionY], a
-    ;PuzzleInMem
-
-/* Puzzle0Start:;12x12
-    db %1001_0001
-    0 db %1000_0000;_0001  
-    1 db %1001_1111;_1001
-
-    db %1001_1001
-    2 db %1001_1111;_1001
-    3 db %1011_1111;_1001
-    
-    db %1001_1001
-    4 db %1001_1111;_1001
-    5 db %1001_1111;_1001
-    
-    db %0101_0001
-    db %1000_0000;_0001
-    db %1001_0000;_0101
-    
-    db %0001_0001
-    db %1011_1001;_0001
-    db %1001_0000;_0001
-    
-    db %0011_0001
-    db %1000_0000;_0001
-    db %1000_0000;_0011
-Puzzle0End:
-
-        ld a, [CursorGridPositionX]
-    cp a, 8
-    jr NC, .byteMode
-
-.byteMode
- */
