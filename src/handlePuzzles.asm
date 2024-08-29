@@ -27,7 +27,7 @@ SetTileAtCursor2OGTile:
 
 ;get which byte it is in
 ;get which bit it is in
-SetPuzzleBit:
+TogglePuzzleBit:
     ld a, [CursorGridPositionY]
     ld b, a
     inc b
@@ -96,7 +96,7 @@ SetPuzzleBit:
     ld d, a
 
     ld a, [hl]
-    or a, d;ññññ should be xor but cursor bs has to be fixed first
+    xor a, d;ññññ should be xor but cursor bs has to be fixed first
     ld [hl], a
     
     ret 

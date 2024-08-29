@@ -8,6 +8,7 @@ SECTION "Header", ROM0[$100]
 DEF DrawRowsStartAdr EQU $98a5
 DEF DrawColumnsStartAdr EQU $9891
 DEF FilledTileID EQU $13 
+DEF XTileID EQU $12
 DEF TimerTileAdr EQU $9864
 DEF InputCD EQU 9
 
@@ -129,7 +130,7 @@ Main:
     ld a, [TimerCntr16thSec]
     inc a
     
-    cp a, 15;maybe set to 16?
+    cp a, 16;maybe set to 16?
     jr nz, .NoIncSecCntr
     
     ld a, [TimerDownSec]
@@ -291,13 +292,13 @@ Main:
     call SetTileAtCursor2OGTile
 
     cp a, FilledTileID;is not Filled in??
-    jr NC, .NotA
+    jr NC, .DontFillTile
     ld [hl], FilledTileID
 
     ld a, FilledTileID
     ld [CurrentTile], a
-
-    call SetPuzzleBit
+.DontFillTile
+    call TogglePuzzleBit
 .NotA
 
     ld a, [NewBTNS]
@@ -311,17 +312,19 @@ Main:
 
     call SetTileAtCursor2OGTile
 
-    cp a, FilledTileID
-    jr NZ, .NoPutX
-    ld [hl], $12
-    ld a, $12
+    cp a, XTileID;is not X-ed??
+    jr NC, .NoPutX
+    ld [hl], XTileID;put down X tile
+    ld a, XTileID
     ld [CurrentTile], a
+
 .NoPutX
-    cp a, $12;is not X-ed??
-    jr NC, .NotB
-    ld [hl], $12;put down X tile
-    ld a, $12
+    cp a, FilledTileID
+    jr NZ, .NotB
+    ld [hl], XTileID
+    ld a, XTileID
     ld [CurrentTile], a
+    call TogglePuzzleBit
 .NotB
 
     ;make cursor white on filled tiles
