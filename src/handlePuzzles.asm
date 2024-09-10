@@ -109,7 +109,8 @@ ScreenWipe0:
     ld a, [GenericWord]
     ld l, a
 
-    ld [hl], $19
+    ld a, [CurrentTile]
+    ld [hl], a
     
     inc hl
     ld a, [hl]

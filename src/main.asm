@@ -7,10 +7,14 @@ SECTION "Header", ROM0[$100]
 ;constants
 DEF DrawRowsStartAdr EQU $98a5
 DEF DrawColumnsStartAdr EQU $9891
-DEF FilledTileID EQU $13 
-DEF XTileID EQU $12
 DEF HeartsStartTileAdr EQU $9844
 DEF TimerTileAdr EQU $9864
+
+DEF FilledTileID EQU $13 
+DEF XTileID EQU $12
+DEF WinTileID EQU $19
+DEF LoseTileID EQU $1a
+
 DEF InputCD EQU 9
 
 EntryPoint:
@@ -245,7 +249,12 @@ Main:
     call CpMem
 
     jr nz, .NotYetWin
-    jp EntryPoint
+    ld a, WinTileID
+    ld [CurrentTile], a
+
+    ld a, 1;win
+    ld [GameState], a
+    jp GameDone
 .NotYetWin
     
     call UpdateBTNS
@@ -260,15 +269,25 @@ Main:
     xor a
     ld [TimerHasReset], a
 
-    inc a
-    ld [GameState], a
-
     ;put down an empty heart
     ld a, [CurrentHeartTileAdr+1]
     ld h, a
     ld a, [CurrentHeartTileAdr]
     ld l, a
     
+    cp a, $42;is the player dead yet?
+    jp nz, .StillAlive
+    ld a, 1
+    ld [TimerTileAdr], a;set the timer to 0 so user won't rage when they lose with "one second to spair"
+
+    ld a, LoseTileID
+    ld [CurrentTile], a
+
+    ld a, 2;lose
+    ld [GameState], a
+    jp GameDone
+.StillAlive
+
     ld [hl], $14
     dec hl
 
@@ -319,6 +338,10 @@ Main:
     ;load BTNS into b
     ld a, [CurrentBTNS]
     ld b, a 
+
+    ;TEMP ññññ
+    bit 2, b;check if Select
+    jp NZ, EntryPoint
 
     ;move cursors with Dpad
     ld a, [CursorPositionY] 
@@ -455,6 +478,50 @@ Main:
 
     jp Main
 
+GameDone:
+    call WaitStartVBlank
+    xor a
+    ld [_OAMRAM], a
+    
+.ScreenWipe0
+    call WaitStartVBlank
+
+    call ScreenWipe0
+
+    ld a, [GenericWord+1]
+    cp a, $9a;41
+    jr nz, .ScreenWipe0
+
+    ld a, [GenericWord]
+    cp a, $41
+    jr nz,.ScreenWipe0
+    
+    ld a, [GameState]
+    cp a, 2;lost
+    jr z, .lost
+
+    ld hl, CurrentPuzzle
+    call Ld_DE_word_HL;ld de, [CurrentPuzzle]
+
+    ld hl, DrawNumsPuzzleStartAdr
+    call Ld_word_HL_DE
+
+    call DrawPuzzle
+    jr WaitTillHeatDeathOfUniverse
+
+.lost
+
+WaitTillHeatDeathOfUniverse:
+    call UpdateBTNS
+
+    ld a, [CurrentBTNS]
+    bit 0, a
+    jp nz, EntryPoint
+
+    jr WaitTillHeatDeathOfUniverse
+
+
+
 INCLUDE "./src/include/puzzles.inc"
 
 INCLUDE "./src/moreHLinst.asm"
@@ -495,7 +562,7 @@ SECTION "GENERIC_VARS", WRAM0
     FrameCntr:db
     ShiftedByte:db
     GenericWord:dw
-    GameState:db
+    GameState:db;0 puzzling, 1 win, 2 game over
 
 SECTION "TIMER_VARS", WRAM0
     TimerDownSec:db
