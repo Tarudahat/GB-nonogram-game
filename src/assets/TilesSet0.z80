@@ -63,4 +63,10 @@ TilesStart:
     DB $50,$60,$50,$60,$50,$60,$50,$60
     DB $0A,$06,$0A,$06,$0A,$06,$0A,$06;border tile left
     DB $0A,$06,$0A,$06,$0A,$06,$0A,$06
+
+    DB $C5,$22,$C0,$37,$01,$FA,$18,$64;star pattern
+    DB $18,$26,$80,$5F,$03,$EC,$A3,$44
+
+    DB $9C,$FF,$6A,$FF,$55,$FF,$A3,$FF;black fabric
+    DB $C5,$FF,$AA,$FF,$56,$FF,$39,$FF
 TilesEnd:   

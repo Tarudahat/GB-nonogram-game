@@ -10,6 +10,7 @@ DrawRows12x12:
     ld [GenericCntr], a
     ld a, [de]
     ld [ShiftedByte], a
+    
 .MainLoop
     ld a, [ShiftedByte]
     rrca
@@ -74,8 +75,9 @@ DrawRows12x12:
 
     ld a, [ShiftedByte]
     add a, 0
-    jr Z, .SkipPut0Tile
+    
     call CpHL2DrawNumstartAdr
+    jr NZ, .SkipPut0Tile
     ld [hl], 1
     .SkipPut0Tile
 
@@ -255,4 +257,118 @@ DrawColumns12x12:
 
     ret 
 
+;de src, hl dst, b cntr, c cntr
+DrawPuzzle:
+    xor a
+    ld [DrawNumsState], a
 
+    ld b, 6
+    ld c, 4
+    ld hl, $984F
+    call SetDrawNumstartAdr2HL
+    
+    ld a, [de]
+    ld [ShiftedByte], a
+.MainLoop
+    call WaitVBlank
+
+    ld a, [ShiftedByte]
+    rrca
+    ld [ShiftedByte], a
+
+    ;put down a filled tile (or don't depending on Carry)
+    ld [hl], 0
+    jr nc, .NoPutTile
+    ld [hl], FilledTileID
+.NoPutTile
+    dec hl
+
+    dec c
+jr NZ, .MainLoop
+    ;reset HL
+    call SetHL2DrawNumstartAdr
+    ;make HL go to next row
+    call SetHLNextRow;I should just store DE in GenericWord then use it to add 32 to HL then load GenericWord back into DE but this is actually faster I think huh...
+    call SetDrawNumstartAdr2HL
+
+    ld a, [DrawNumsState]
+    cp a, 1
+    jr z, .GoToNext4bitChunk
+
+    ;set DrawNumsState to 1 -> so we don't read the same byte for the 3rd time
+    inc a
+    ld [DrawNumsState], a
+
+    ld a, [de]
+    swap a
+
+.PutInShiftedByteAndResetC
+    ld [ShiftedByte], a
+    ld c, 4
+    jr .MainLoop
+    
+.GoToNext4bitChunk
+    xor a
+    ld [DrawNumsState], a
+    inc de 
+    inc de 
+    inc de 
+    ld a, [de]
+
+    dec b
+    jr z, .DrawFullBytes
+    jr .PutInShiftedByteAndResetC
+.DrawFullBytes
+
+    ld hl, DrawNumsPuzzleStartAdr
+    call Ld_DE_word_HL
+    inc de
+
+    ld b, 12
+    ld c, 8
+    ld hl, $984B
+    call SetDrawNumstartAdr2HL
+    
+    ld a, [de]
+    ld [ShiftedByte], a
+
+.SecondMainLoop
+    call WaitVBlank
+
+    ld a, [ShiftedByte]
+    rrca
+    ld [ShiftedByte], a
+
+    ;put down a filled tile (or don't depending on Carry)
+    ld [hl], 0
+    jr nc, .NoPutTile2
+    ld [hl], FilledTileID
+.NoPutTile2
+    dec hl
+
+    dec c
+jr NZ, .SecondMainLoop
+    call SetHL2DrawNumstartAdr
+    call SetHLNextRow
+    call SetDrawNumstartAdr2HL
+
+    ld c, 8
+    inc de
+
+    ld a, [DrawNumsState]
+    cp a, 1
+    jr nz, .NotYetSkipOver4bitChunk
+    inc de
+    dec a
+    dec a
+    .NotYetSkipOver4bitChunk
+    inc a
+    ld [DrawNumsState], a
+
+
+    ld a, [de]
+    ld [ShiftedByte], a
+
+    dec b
+    jr nz, .SecondMainLoop
+    ret

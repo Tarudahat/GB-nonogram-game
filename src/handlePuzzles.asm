@@ -86,7 +86,7 @@ TogglePuzzleBit:
     inc d
 .GetBit
     ;got the correct byte
-    ;now egt correct bit
+    ;now get correct bit
     ld a, %1000_0000
 .GetBitLoop
     rla
@@ -96,7 +96,37 @@ TogglePuzzleBit:
     ld d, a
 
     ld a, [hl]
-    xor a, d;ññññ should be xor but cursor bs has to be fixed first
+    xor a, d
     ld [hl], a
     
-    ret 
+    ret
+
+ScreenWipe0:
+    ld de, 32-18
+
+    ld a, [GenericWord+1]
+    ld h, a
+    ld a, [GenericWord]
+    ld l, a
+
+    ld [hl], $19
+    
+    inc hl
+    ld a, [hl]
+    cp a, $17
+
+    jr nz, .NotAtRightBorderYet
+    add hl, de
+.NotAtRightBorderYet
+
+    ld a, h
+    ld [GenericWord+1], a
+    ld a, l
+    ld [GenericWord], a
+
+    ret
+
+
+
+
+

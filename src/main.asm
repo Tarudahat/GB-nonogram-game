@@ -9,6 +9,7 @@ DEF DrawRowsStartAdr EQU $98a5
 DEF DrawColumnsStartAdr EQU $9891
 DEF FilledTileID EQU $13 
 DEF XTileID EQU $12
+DEF HeartsStartTileAdr EQU $9844
 DEF TimerTileAdr EQU $9864
 DEF InputCD EQU 9
 
@@ -23,9 +24,9 @@ EntryPoint:
     xor a
     ldh [$FF06], a;set Timer modulo to 0 so the Timer interupt will be requested every 1/16th of a sec
     
-    xor a
+    ld a, $F0
     ld [TimerCntr16thSec],a
-    ;ld a, 60
+    ld a, $59
     ld [TimerDownSec], a
     ld a, InputCD
     ld [FrameCntr], a
@@ -36,7 +37,7 @@ EntryPoint:
 
     call WaitStartVBlank
 
-    ;turn of lcd
+    ;turn off lcd
     xor a
     ld [rLCDC], a
 
@@ -53,6 +54,107 @@ EntryPoint:
     ld bc, SpriteTilesEnd-SpriteTilesStart
     call CopyMem
 
+    ;Temp puzzle select
+
+
+    ; Turn the LCD on
+    ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
+    ld [rLCDC], a
+
+    ; During the first (blank) frame, initialize display registers
+    ld a, %11100100
+    ld [rBGP], a
+    ld a, %11100100
+    ld [rOBP0], a  
+    
+    xor a
+    ld [GameState], a
+    ld [GenericCntr], a
+TempLoop:
+    call UpdateBTNS
+
+    call WaitStartVBlank
+
+    ;show crnt selected lvl
+    ld hl, $98E0
+    ld a, [GenericCntr]
+    inc a
+    ld [hl], a
+    dec a
+    call WaitStartVBlank
+    
+    ;de src, hl dst, b cntr, c cntr
+    ;SetCurrentPuzzle
+    call SetCurrentPuzzle
+
+    ld hl, DrawNumsPuzzleStartAdr
+    call Ld_word_HL_DE
+
+    call DrawPuzzle
+
+    call UpdateFrameCooldownCntr
+
+    ;handle input delay
+    ld a, [FrameCntr]
+    dec a
+    jp nz, TempLoop
+
+    ld a, [NewBTNS]
+    ;check if BTN
+    or a;cp a, 0
+    jr z, .NoSetCD
+    ld a, [FrameCntr]
+    cp a, 1
+    jr nz, .NoSetCD
+    ld a, InputCD
+    ld [FrameCntr], a;temp
+    .NoSetCD
+
+    ;load BTNS into b
+    ld a, [CurrentBTNS]
+    ld b, a
+
+    ld a, [GenericCntr]
+    
+    ;check down
+    bit 7, b
+    jr Z, .NotDown
+    dec a
+    ld [GenericCntr], a
+.NotDown       
+    ;check up
+    bit 6, b
+    jr Z, .NotUp
+    inc a
+    ld [GenericCntr], a
+.NotUp
+
+    ;check if A
+    ld a, [NewBTNS]
+
+    bit 0, a
+    jr Z, .NotA
+
+    ld a, [PrevBTNS]
+    bit 0, a
+    jr NZ, .NotA
+    
+    jr PuzzleState
+.NotA
+
+    ld a, [NewBTNS]
+    ld [PrevBTNS], a
+    jr TempLoop
+
+
+PuzzleState:
+    nop
+    call WaitStartVBlank
+
+    ;turn off lcd
+    xor a
+    ld [rLCDC], a
+
     ld de, EmptyMap
     ld hl, $9800
     ld bc, 1024
@@ -63,10 +165,8 @@ EntryPoint:
     ld bc, 19
     call CopyMem
 
-    ;set current puzzle
-    ld de, Puzzle0Start
-    ld hl, CurrentPuzzle
-    call Ld_word_HL_DE
+    ;SetCurrentPuzzle
+    call SetCurrentPuzzle
 
     ;draw num rows 
     ld de, DrawRowsStartAdr
@@ -112,6 +212,17 @@ EntryPoint:
     ld a, %11100100
     ld [rOBP0], a  
 
+    ;init some values
+    ld a, HIGH(HeartsStartTileAdr)
+    ld [CurrentHeartTileAdr+1], a
+    ld a, LOW(HeartsStartTileAdr)
+    ld [CurrentHeartTileAdr], a
+
+    ld a, $98
+    ld [GenericWord+1], a
+    ld a, $01
+    ld [GenericWord], a
+
     ld a, 6*8+8
     ld [CursorPositionX], a
     ld a, 5*8+16
@@ -121,35 +232,9 @@ EntryPoint:
     ld [CursorGridPositionY], a
 
 Main:
-    ;update timer
-    ;check if Timer intr is requested
-    ldh a, [$FF0F]
-    bit 2, a
-    jr z, .TimerIntrNotRequested
-    
-    ld a, [TimerCntr16thSec]
-    inc a
-    
-    cp a, 16;maybe set to 16?
-    jr nz, .NoIncSecCntr
-    
-    ld a, [TimerDownSec]
-    inc a
-    ld [TimerDownSec], a
-    
-    ;cp a, 0
-    ;jr nz, .ResetTimerTo60
-    ;ld a, 60
-    ;ld [TimerDownSec], a
-;.ResetTimerTo60
 
-    xor a
-.NoIncSecCntr
-    ld [TimerCntr16thSec], a
-    ldh a, [$FF0F]
-    and a, %1111_1011;reset the Timer intrpt
-    ldh [$FF0F], a
-.TimerIntrNotRequested
+    ;update timer
+    call UpdateTimer
 
     ;check if win
     ;de src0, hl src1, bc data size
@@ -158,28 +243,52 @@ Main:
     ld hl, PuzzleInMem
     ld bc, 18
     call CpMem
+
+    jr nz, .NotYetWin
+    jp EntryPoint
+.NotYetWin
     
     call UpdateBTNS
 
     call WaitStartVBlank
 
-    ;count down the input cooldown timer
-    ld a, [FrameCntr]
-    dec a
-    jr z, .NoCountDown_FrameCntr
-    ld [FrameCntr], a
-    .NoCountDown_FrameCntr
+    ;check if a life has been lost due to time
+    ld a, [TimerHasReset]
+    cp a, 1
+    jr nz, .TimerHasNotReset
+    ;reset the timerreset flag
+    xor a
+    ld [TimerHasReset], a
 
+    inc a
+    ld [GameState], a
+
+    ;put down an empty heart
+    ld a, [CurrentHeartTileAdr+1]
+    ld h, a
+    ld a, [CurrentHeartTileAdr]
+    ld l, a
+    
+    ld [hl], $14
+    dec hl
+
+    ld a, h
+    ld [CurrentHeartTileAdr+1], a
+    ld a, l
+    ld [CurrentHeartTileAdr], a
+.TimerHasNotReset
+
+    ;count down the input cooldown timer
+    call UpdateFrameCooldownCntr
  
     ;draw the timer
+    ;a bin val IN, b BCD val out, c cntr, d  
     ld a, [TimerDownSec]
-    ld b, a
-    daa
     and a, $0F
     inc a
     ld [TimerTileAdr], a
-    ld a, b
-    daa
+
+    ld a, [TimerDownSec]
     and a, $F0
     swap a
     inc a
@@ -192,7 +301,9 @@ Main:
 
     ld a, [NewBTNS]
     ;check if BTN
-    cp a, 0
+    and $F0
+    
+    or a;cp a, 0
     jr z, .NoSetCD
     ld a, [FrameCntr]
     cp a, 1
@@ -344,42 +455,17 @@ Main:
 
     jp Main
 
+INCLUDE "./src/include/puzzles.inc"
+
+INCLUDE "./src/moreHLinst.asm"
 INCLUDE "./src/miscFunctions.asm"
 INCLUDE "./src/input.asm"
-INCLUDE "./src/moreHLinst.asm"
 INCLUDE "./src/drawPuzzles.asm"
 INCLUDE "./src/sprites.asm"
 INCLUDE "./src/handlePuzzles.asm"
 
 INCLUDE "./src/assets/TilesSet0.z80"
 INCLUDE "./src/assets/Sprites.z80"
-
-
-Puzzle0Start:;12x12
-    db %1001_0001
-    db %1000_0000;_0001
-    db %1001_1111;_1001
-
-    db %1001_1001
-    db %1001_1111;_1001
-    db %1011_1111;_1001
-    
-    db %1001_1001
-    db %1001_1111;_1001
-    db %1001_1111;_1001
-    
-    db %0001_0001
-    db %1000_0000;_0001
-    db %1001_0000;_0001
-    
-    db %0001_0101
-    db %1011_1001;_0101
-    db %1001_0000;_0001
-    
-    db %0011_0001
-    db %1000_0000;_0001
-    db %1000_0000;_0011
-Puzzle0End:
 
 
 ;9842
@@ -407,13 +493,16 @@ SECTION "GENERIC_VARS", WRAM0
     GenericCntr:db
     GenericCntr2:db
     FrameCntr:db
+    ShiftedByte:db
+    GenericWord:dw
+    GameState:db
 
 SECTION "TIMER_VARS", WRAM0
     TimerDownSec:db
     TimerCntr16thSec:db
+    TimerHasReset:db
 
 SECTION "PUZZLE_DRAWING_VARS", WRAM0
-    ShiftedByte:db
     DrawNumsState:db
     DrawNumstartAdr:dw
     DrawNumsPuzzleStartAdr:dw
@@ -435,3 +524,4 @@ SECTION "PUZZLE_VARS", WRAM0
     OriginalTileID:db
     CurrentPuzzle:dw
     PuzzleInMem:ds 18
+    CurrentHeartTileAdr:dw
