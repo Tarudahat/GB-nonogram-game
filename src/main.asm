@@ -10,6 +10,7 @@ DEF DrawColumnsStartAdr EQU $9891
 DEF HeartsStartTileAdr EQU $9844
 DEF TimerTileAdr EQU $9864
 
+DEF BlackTileID EQU $1b
 DEF FilledTileID EQU $13 
 DEF XTileID EQU $12
 DEF WinTileID EQU $19
@@ -28,10 +29,8 @@ EntryPoint:
     xor a
     ldh [$FF06], a;set Timer modulo to 0 so the Timer interupt will be requested every 1/16th of a sec
     
-    ld a, $F0
+    xor a
     ld [TimerCntr16thSec],a
-    ld a, $59
-    ld [TimerDownSec], a
     ld a, InputCD
     ld [FrameCntr], a
 
@@ -50,7 +49,6 @@ EntryPoint:
     ld de, TilesStart
     ld hl, $9000
     ld bc, TilesEnd-TilesStart
-    ;de src, hl dst, bc data size
     call CopyMem
 
     ld hl, $8000
@@ -58,8 +56,7 @@ EntryPoint:
     ld bc, SpriteTilesEnd-SpriteTilesStart
     call CopyMem
 
-    ;Temp puzzle select
-
+    ;-=-=- Temp puzzle select -=-=-
 
     ; Turn the LCD on
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
@@ -96,7 +93,7 @@ TempLoop:
 
     call DrawPuzzle
 
-    call UpdateFrameCooldownCntr
+    call UpdateFrameCntr
 
     ;handle input delay
     ld a, [FrameCntr]
@@ -120,6 +117,29 @@ TempLoop:
 
     ld a, [GenericCntr]
     
+    ;check B
+    bit 1, b
+    jr Z, .NotB
+
+    ld hl, $99e0
+    xor a
+
+    rept 18;ñññ
+    ld [hli], a
+    endr
+
+    ld hl, $99e0
+
+    dec de
+    ld a, [de];ld ofset into a 
+    ld b, 0
+    ld c, a
+    add hl, bc ;add ofset to dst
+    inc de
+    
+    call DrawString
+.NotB
+
     ;check down
     bit 7, b
     jr Z, .NotDown
@@ -148,7 +168,7 @@ TempLoop:
 
     ld a, [NewBTNS]
     ld [PrevBTNS], a
-    jr TempLoop
+    jp TempLoop
 
 
 PuzzleState:
@@ -172,6 +192,16 @@ PuzzleState:
     ;SetCurrentPuzzle
     call SetCurrentPuzzle
 
+    ;DE is pointing at start of the puzzle
+    dec de;one byte before the puzzle is the time
+    ld a, [de]
+    ld [TimerDownSec], a
+    dec de
+    ld a, [de]
+    ld [TimerDownMin], a
+    inc de
+    inc de;return de to the start of the puzzle
+
     ;draw num rows 
     ld de, DrawRowsStartAdr
     ld hl, DrawNumstartAdr
@@ -188,8 +218,8 @@ PuzzleState:
     ld hl, DrawNumstartAdr
     call Ld_word_HL_DE
 
-
-    ld hl, CurrentPuzzle ;ld de, Puzzle0End-3
+    ;vv ld de, Puzzle0End-3
+    ld hl, CurrentPuzzle 
     call Ld_DE_word_HL
 
     ld a, e
@@ -198,6 +228,7 @@ PuzzleState:
     ld a, d
     adc a, 0
     ld d, a 
+    ;^^
 
     ld hl, DrawNumsPuzzleStartAdr
     call Ld_word_HL_DE
@@ -261,6 +292,7 @@ Main:
 
     call WaitStartVBlank
 
+    /*
     ;check if a life has been lost due to time
     ld a, [TimerHasReset]
     cp a, 1
@@ -276,10 +308,16 @@ Main:
     ld l, a
     
     cp a, $42;is the player dead yet?
+    */
+
+    ld a, [TimerDownMin]
+    ld b, a
+    ld a, [TimerDownSec]
+    or a, b
     jp nz, .StillAlive
     ld a, 1
-    ld [TimerTileAdr], a;set the timer to 0 so user won't rage when they lose with "one second to spair"
-
+    ld [TimerTileAdr], a;set the timer to 0 so user won't rage when they lose with "one second to spare"
+    
     ld a, LoseTileID
     ld [CurrentTile], a
 
@@ -288,17 +326,17 @@ Main:
     jp GameDone
 .StillAlive
 
-    ld [hl], $14
+    /*ld [hl], $14
     dec hl
 
     ld a, h
     ld [CurrentHeartTileAdr+1], a
     ld a, l
     ld [CurrentHeartTileAdr], a
-.TimerHasNotReset
+.TimerHasNotReset*/
 
     ;count down the input cooldown timer
-    call UpdateFrameCooldownCntr
+    call UpdateFrameCntr
  
     ;draw the timer
     ;a bin val IN, b BCD val out, c cntr, d  
@@ -312,6 +350,10 @@ Main:
     swap a
     inc a
     ld [TimerTileAdr-1], a
+
+    ld a, [TimerDownMin]
+    inc a
+    ld [TimerTileAdr-2], a
 
     ;handle input delay
     ld a, [FrameCntr]
@@ -493,7 +535,8 @@ GameDone:
     jr nz, .ScreenWipe0
 
     ld a, [GenericWord]
-    cp a, $41
+    cp a, $41;de src, hl dst
+   
     jr nz,.ScreenWipe0
     
     ld a, [GameState]
@@ -507,9 +550,30 @@ GameDone:
     call Ld_word_HL_DE
 
     call DrawPuzzle
+
+    ld hl, $99e0
+
+    dec de
+    ld a, [de];ld ofset into a 
+    ld b, 0
+    ld c, a
+    add hl, bc ;add ofset to dst
+    inc de
+    
+    call DrawString
+
     jr WaitTillHeatDeathOfUniverse
 
 .lost
+    ld hl, $98c6
+    ld de, GameOverMSG.Line0
+    call DrawString
+    ld hl, $9905
+    ld de, GameOverMSG.Line1
+    call DrawString
+    ld hl, $9947
+    ld de, GameOverMSG.Line2
+    call DrawString
 
 WaitTillHeatDeathOfUniverse:
     call UpdateBTNS
@@ -521,8 +585,16 @@ WaitTillHeatDeathOfUniverse:
     jr WaitTillHeatDeathOfUniverse
 
 
-
+INCLUDE "./src/include/charmap.inc"
 INCLUDE "./src/include/puzzles.inc"
+
+GameOverMSG:
+.Line0
+db "YOU LOST", 255
+.Line1
+db "PLEASE TRY", 255
+.Line2
+db "AGAIN", $14, 255
 
 INCLUDE "./src/moreHLinst.asm"
 INCLUDE "./src/miscFunctions.asm"
@@ -535,7 +607,6 @@ INCLUDE "./src/assets/TilesSet0.z80"
 INCLUDE "./src/assets/Sprites.z80"
 
 
-;9842
 EmptyMap:
     db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
     db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
@@ -556,6 +627,7 @@ EmptyMap:
     db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
     db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
 
+
 SECTION "GENERIC_VARS", WRAM0
     GenericCntr:db
     GenericCntr2:db
@@ -565,6 +637,7 @@ SECTION "GENERIC_VARS", WRAM0
     GameState:db;0 puzzling, 1 win, 2 game over
 
 SECTION "TIMER_VARS", WRAM0
+    TimerDownMin:db
     TimerDownSec:db
     TimerCntr16thSec:db
     TimerHasReset:db

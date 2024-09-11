@@ -276,10 +276,10 @@ DrawPuzzle:
     rrca
     ld [ShiftedByte], a
 
-    ;put down a filled tile (or don't depending on Carry)
+    ;put down a black tile (or don't depending on Carry)
     ld [hl], 0
     jr nc, .NoPutTile
-    ld [hl], FilledTileID
+    ld [hl], BlackTileID
 .NoPutTile
     dec hl
 
@@ -339,10 +339,10 @@ jr NZ, .MainLoop
     rrca
     ld [ShiftedByte], a
 
-    ;put down a filled tile (or don't depending on Carry)
+    ;put down a black tile (or don't depending on Carry)
     ld [hl], 0
     jr nc, .NoPutTile2
-    ld [hl], FilledTileID
+    ld [hl], BlackTileID
 .NoPutTile2
     dec hl
 

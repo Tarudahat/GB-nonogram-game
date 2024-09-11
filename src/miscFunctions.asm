@@ -43,22 +43,6 @@ CpMem:
     ret nz
 
 
-SetCurrentPuzzle:
-    ld a, [GenericCntr]
-    add a;rla would be fine to
-
-    add LOW(PuzzlesLUT) 
-    ld l, a
-    adc HIGH(PuzzlesLUT)
-    sub l
-    ld h, a
-    
-    call Ld_DE_word_HL;ld de, [PuzzlesLUT-Entry]
-    ld hl, CurrentPuzzle
-    call Ld_word_HL_DE
-
-    ret
-
 UpdateTimer:
     ;check if Timer intr is requested
     ldh a, [$FF0F]
@@ -76,9 +60,14 @@ UpdateTimer:
     daa
     ld [TimerDownSec], a
     
-    or a;cp a, 0
+    cp a, $F9
     jr nz, .ResetTimerTo60
-    ld a, $59
+    ld a, [TimerDownMin]
+    dec a
+    ld [TimerDownMin], a
+    
+    ld a, $99
+    ;ld a, $59
     ld [TimerDownSec], a
 
     ld a, 1
@@ -95,11 +84,36 @@ UpdateTimer:
     ret
 
 
-UpdateFrameCooldownCntr:
+UpdateFrameCntr:
     ;count down the input cooldown timer
     ld a, [FrameCntr]
     dec a
-    jr z, .NoCountDown_FrameCntr
+    jr z, .DontCountDown_FrameCntr
     ld [FrameCntr], a
-    .NoCountDown_FrameCntr
+    .DontCountDown_FrameCntr
+    ret
+
+;de src, hl dst
+DrawString:
+    call WaitStartVBlank
+
+    call UpdateFrameCntr
+    ld a, [FrameCntr]
+    dec a
+    jr nz, DrawString 
+
+    ld a, [de]
+    
+    cp a, 255
+    jr z, .Return
+
+    inc de
+
+    ld [hli], a
+
+    ld a, 5;set the cooldown to 3 frames per char
+    ld [FrameCntr], a
+
+    jr DrawString
+.Return
     ret

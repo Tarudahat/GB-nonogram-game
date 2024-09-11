@@ -101,6 +101,22 @@ TogglePuzzleBit:
     
     ret
 
+SetCurrentPuzzle:
+    ld a, [GenericCntr]
+    add a;rla would be fine to
+
+    add LOW(PuzzlesLUT) 
+    ld l, a
+    adc HIGH(PuzzlesLUT)
+    sub l
+    ld h, a
+    
+    call Ld_DE_word_HL;ld de, [PuzzlesLUT-Entry]
+    ld hl, CurrentPuzzle
+    call Ld_word_HL_DE
+
+    ret
+
 ScreenWipe0:
     ld de, 32-18
 
