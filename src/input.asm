@@ -1,6 +1,8 @@
 INCLUDE "./src/include/hardware.inc"
 
-UpdateBTNS:
+SECTION "Input", ROM0
+
+UpdateBTNS::
     ld  a, $20 ;set get dpad flag
     call .GetBTNS
 

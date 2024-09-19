@@ -1,22 +1,27 @@
+INCLUDE "./src/include/hardware.inc"
 
-WaitStartVBlank:
+SECTION "MiscFunctions", ROM0
+
+;-=- these 3 are often made MACROs instead of functions -=-
+WaitStartVBlank::
     ld a, [rLY]
     cp 144
     jr nc, WaitStartVBlank;continue when rLY == 144
-WaitVBlank:
+WaitVBlank::
     ld a, [rLY]
     cp a, 144
     jr C, WaitVBlank;continue When rLY > 144 else wait for that to make sure 
     ret
 
-BusyWait4FreeVRAM:
+BusyWait4FreeVRAM::
     ldh a, [rSTAT]
     and a, STATF_BUSY
     jr nz, BusyWait4FreeVRAM
     ret
+;-=-=-=-=- but they are made to wait so to me it doesn't seem to matter rly
 
 ;de src, hl dst, bc data size
-CopyMem:
+CopyMem::
     ld a, [de]
     inc de
     ld [hli],a
@@ -27,7 +32,7 @@ CopyMem:
     ret
 
 ;de src0, hl src1, bc data size
-CpMem:
+CpMem::
     ld a, [de]
     inc de
     cp a, [hl]
@@ -43,7 +48,7 @@ CpMem:
     ret nz
 
 
-UpdateTimer:
+UpdateTimer::
     ;check if Timer intr is requested
     ldh a, [$FF0F]
     bit 2, a
@@ -83,8 +88,7 @@ UpdateTimer:
 .TimerIntrNotRequested
     ret
 
-
-UpdateFrameCntr:
+UpdateFrameCntr::
     ;count down the input cooldown timer
     ld a, [FrameCntr]
     dec a
@@ -94,7 +98,7 @@ UpdateFrameCntr:
     ret
 
 ;de src, hl dst
-DrawString:
+DrawString::
     call WaitStartVBlank
 
     call UpdateFrameCntr

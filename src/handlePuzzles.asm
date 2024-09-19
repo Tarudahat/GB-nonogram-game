@@ -1,5 +1,7 @@
+SECTION "HandlePuzzles", ROM0
+
 ;eats a, b, d, e
-SetTileAtCursor2OGTile:
+SetTileAtCursor2OGTile::
     ;load tileID at cursor into a
     ;check is filled in -> yes -> replace with TileID at 
     ld a, [hl]
@@ -27,7 +29,7 @@ SetTileAtCursor2OGTile:
 
 ;get which byte it is in
 ;get which bit it is in
-TogglePuzzleBit:
+TogglePuzzleBit::
     ld a, [CursorGridPositionY]
     ld b, a
     inc b
@@ -101,7 +103,7 @@ TogglePuzzleBit:
     
     ret
 
-SetCurrentPuzzle:
+SetCurrentPuzzle::
     ld a, [GenericCntr]
     add a;rla would be fine to
 
@@ -117,7 +119,7 @@ SetCurrentPuzzle:
 
     ret
 
-ScreenWipe0:
+ScreenWipe0::
     ld de, 32-18
 
     ld a, [GenericWord+1]

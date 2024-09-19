@@ -1,6 +1,8 @@
 INCLUDE "./src/include/hardware.inc"
 
-ClearOAM:
+SECTION "Sprites", ROM0
+
+ClearOAM::
     ld a, 0
     ld b, 160
     ld hl, _OAMRAM
@@ -11,13 +13,14 @@ ClearOAM:
     ret
 
 ;b posX, c posY
-PixelPosition2MapAdr:
+PixelPosition2MapAdr::
     ld hl, $9800
     ;adr = $9800 + X/8 + (Y/8)*8*4
     ;                      |---|-----> this "kills" bit 0-2 
     ld a, c
     and a, %11111000
-    ;put it in HL, it can do POW2 well
+
+    ;put it in HL, to *2 by using: add hl, hl
     ld l, a
     ld h, 0
 

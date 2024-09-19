@@ -1,4 +1,6 @@
-PuzzlesLUT:
+SECTION "Puzzles", ROM0
+
+PuzzlesLUT::
     dw Puzzle0Start
     dw Puzzle1Start
     dw Puzzle2Start
@@ -13,7 +15,7 @@ PuzzlesLUT:
     
 ;GAME BRICK
     db 5,$00;time in sec x100, sec
-Puzzle0Start:;12x12
+Puzzle0Start::;12x12
     db %1001_0001
     db %1000_0000;_0001
     db %1001_1111;_1001
@@ -37,13 +39,13 @@ Puzzle0Start:;12x12
     db %0011_0001
     db %1000_0000;_0001
     db %1000_0000;_0011
-Puzzle0End:
+Puzzle0End::
     db 5;offset from left
     db "GAME BRICK", 255
 
 ;ANCHOR
     db 5,$00;time in sec x100, sec
-Puzzle1Start:;12x12
+Puzzle1Start::;12x12
     db %0000_0000
     db %0000_0110;_0000
     db %0000_1001;_0000
@@ -67,13 +69,13 @@ Puzzle1Start:;12x12
     db %1100_1110
     db %0111_1111;_1110
     db %0011_1111;_1100
-Puzzle1End:
+Puzzle1End::
     db 7;offset from left
     db "ANCHOR", 255
 
 ;MUSHROOM
     db 7,$00;time in sec x100, sec
-Puzzle2Start:;12x12
+Puzzle2Start::;12x12
     db %0000_0000
     db %0000_0000;_0000
     db %0000_1111;_0000
@@ -98,13 +100,13 @@ Puzzle2Start:;12x12
     db %0000_1000
     db %0001_1110;_1000
     db %0000_1111;_0000
-Puzzle2End:
+Puzzle2End::
     db 6;offset from left
     db "MUSHROOM", 255
 
 ;TREASURE CHEST
     db 5,$00;time in sec x100, sec
-Puzzle3Start:;12x12
+Puzzle3Start::;12x12
     db %0000_0000
     db %0000_0000;_0000
     db %0000_0000;_0000
@@ -128,13 +130,13 @@ Puzzle3Start:;12x12
     db %0000_1111
     db %1111_1111;_1000
     db %0000_0000;_0000
-Puzzle3End:
+Puzzle3End::
     db 3;offset from left
     db "TREASURE CHEST", 255
 
 ;BLADE MASTER
     db 5,$00;time in sec x100, sec
-Puzzle4Start:;12x12
+Puzzle4Start::;12x12
     db %1111_1111
     db %1111_1111;_1111
     db %1001_1100;_1111
@@ -158,13 +160,13 @@ Puzzle4Start:;12x12
     db %1100_1010
     db %1111_0101;_1010
     db %1111_0011;_1100
-Puzzle4End:
+Puzzle4End::
     db 4;offset from left
     db "BLADE MASTER", 255
 
 ;MEDUSA KID
     db 9,$99;time in sec x100, sec
-Puzzle5Start:;12x12
+Puzzle5Start::;12x12
     db %0000_0000
     db %0101_1010;0000 
     db %0110_1100;0000 
@@ -188,13 +190,13 @@ Puzzle5Start:;12x12
     db %1100_0110    
     db %0001_1100;0110 
     db %0000_0111;1100 
-Puzzle5End:
+Puzzle5End::
     db 5;offset from left
     db "MEDUSA KID", 255
 
 ;SHIELD
     db 5,$00;time in sec x100, sec
-Puzzle6Start:;12x12
+Puzzle6Start::;12x12
     db %1110_1000
     db %0001_1111;1000 
     db %0111_1100;1110 
@@ -218,13 +220,13 @@ Puzzle6Start:;12x12
     db %0000_1000
     db %0001_1011;1000 
     db %0000_1111;0000 
-Puzzle6End:
+Puzzle6End::
     db 7;offset from left
     db "SHIELD", 255
 
 ;CYCLOPS KID
     db 5,$00;time in sec x100, sec
-Puzzle7Start:;12x12
+Puzzle7Start::;12x12
     db %0100_0000
     db %0000_0000;0000 
     db %0010_1111;0100 
@@ -248,13 +250,13 @@ Puzzle7Start:;12x12
     db %1110_1000
     db %0001_1111;1000 
     db %0111_1001;1110 
-Puzzle7End:
+Puzzle7End::
     db 5;offset from left
     db "CYCLOPS KID", 255
 
 ;Little Bug
     db 5,$00;time in sec x100, sec
-Puzzle8Start:
+Puzzle8Start::
     db %0000_0000
     db %0000_1001;0000 
     db %0000_1111;0000 
@@ -278,13 +280,13 @@ Puzzle8Start:
     db %0000_1010
     db %0101_1111;1010 
     db %0000_0000;0000 
-Puzzle8End:
+Puzzle8End::
     db 5;offset from left
     db "LITTLE BUG", 255
 
 ;Bow And Arrow
     db 5,$00;time in sec x100, sec
-Puzzle9Start:
+Puzzle9Start::
     db %0110_0001
     db %0111_1111;0001 
     db %1011_1100;0110 
@@ -308,13 +310,13 @@ Puzzle9Start:
     db %1111_1011
     db %0101_1111;1011 
     db %1011_1111;1111 
-Puzzle9End:
+Puzzle9End::
     db 4;offset from left
     db "BOW AND ARROW", 255
 
 ;Magic Potion
     db 5,$00;time in sec x100, sec
-Puzzle10Start:
+Puzzle10Start::
     db %1000_0000
     db %0000_1111;0000 
     db %0001_1111;1000 
@@ -338,7 +340,7 @@ Puzzle10Start:
     db %1100_1110
     db %0111_1100;1110 
     db %0011_1111;1100 
-Puzzle10End:
+Puzzle10End::
     db 4;offset from left
     db "MAGIC ELIXIR", 255
 

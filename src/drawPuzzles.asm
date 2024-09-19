@@ -1,6 +1,9 @@
+INCLUDE "./src/include/gameConstants.inc"
+
+SECTION "DrawPuzzles", ROM0
 
 ;de src, hl dst, c cntr, b cntr
-DrawRows12x12:
+DrawRows12x12::
     ld c, 4
     ld b, 1
     ld a, 0
@@ -103,7 +106,7 @@ DrawRows12x12:
     ret
 
 ;de src, hl dst, c bitmask, b cntr
-DrawColumns12x12:
+DrawColumns12x12::
     ld c, 1;%0000_0001
     ld b, 1
     ld a, 12
@@ -258,7 +261,7 @@ DrawColumns12x12:
     ret 
 
 ;de src, hl dst, b cntr, c cntr
-DrawPuzzle:
+DrawPuzzle::
     xor a
     ld [DrawNumsState], a
 

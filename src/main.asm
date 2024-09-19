@@ -1,27 +1,21 @@
 INCLUDE "./src/include/hardware.inc"
+INCLUDE "./src/include/gameConstants.inc"
 
 SECTION "Header", ROM0[$100]
     jp EntryPoint
     ds $150 - @, 0
 
-;constants
-DEF DrawRowsStartAdr EQU $98a5
-DEF DrawColumnsStartAdr EQU $9891
-DEF HeartsStartTileAdr EQU $9844
-DEF TimerTileAdr EQU $9864
-
-DEF BlackTileID EQU $1b
-DEF FilledTileID EQU $13 
-DEF XTileID EQU $12
-DEF WinTileID EQU $19
-DEF LoseTileID EQU $1a
-
-DEF InputCD EQU 9
-
+SECTION "Main", ROM0
 EntryPoint:
     ;setup interupt handlers
     ei;Enable Interrupts
     nop
+    
+    ; turn on CH1-4
+    ld a, %10000000
+	ld [rNR52], a
+
+
 
     ;Setup timer registers
     ld a, %0000_0100
@@ -29,15 +23,13 @@ EntryPoint:
     xor a
     ldh [$FF06], a;set Timer modulo to 0 so the Timer interupt will be requested every 1/16th of a sec
     
+    ;init some timer values
     xor a
     ld [TimerCntr16thSec],a
     ld a, InputCD
     ld [FrameCntr], a
 
-
-    ; Shut down audio circuitry
-	ld [rNR52], a
-
+    ;wait StartVBlank
     call WaitStartVBlank
 
     ;turn off lcd
@@ -462,6 +454,18 @@ Main:
     bit 0, a
     jr NZ, .NotA
 
+    ;trigger CH1, Don't enable the timer (never shuts down), nothing, Period (higher 3bits)
+    ld a, %1_0_000_011
+    ld [rNR14], a
+    ;sweep periode (~ 1/f), direction (0: T inc -> f dec), Individual step ("speed")
+    ;ld a, %0_111_1_011
+    ;ld [rNR10], a
+    ld a, $00
+    ld [rNR13], a
+    ;init vol, envelope dir, sweep speed
+    ld a, %10000111
+    ld [rNR12], a
+
     xor a
     ld [CurrentTile], a
 
@@ -493,6 +497,16 @@ Main:
     ld [hl], XTileID;put down X tile
     ld a, XTileID
     ld [CurrentTile], a
+
+    ld a, %1111_0_111
+    ld [rNR43], a
+
+    ;init vol, envelope dir, sweep speed
+    ld a, %10000111
+    ld [rNR14], a
+
+    ld a, %10000000
+    ld [rNR44],a
 
 .NoPutX
     cp a, FilledTileID
@@ -586,7 +600,9 @@ WaitTillHeatDeathOfUniverse:
 
 
 INCLUDE "./src/include/charmap.inc"
-INCLUDE "./src/include/puzzles.inc"
+
+INCLUDE "./src/assets/Sprites.z80"
+INCLUDE "./src/assets/TilesSet0.z80"
 
 GameOverMSG:
 .Line0
@@ -595,73 +611,3 @@ db "YOU LOST", 255
 db "PLEASE TRY", 255
 .Line2
 db "AGAIN", $14, 255
-
-INCLUDE "./src/moreHLinst.asm"
-INCLUDE "./src/miscFunctions.asm"
-INCLUDE "./src/input.asm"
-INCLUDE "./src/drawPuzzles.asm"
-INCLUDE "./src/sprites.asm"
-INCLUDE "./src/handlePuzzles.asm"
-
-INCLUDE "./src/assets/TilesSet0.z80"
-INCLUDE "./src/assets/Sprites.z80"
-
-
-EmptyMap:
-    db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$15,$15,$15,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$16,$4,$2,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$10,$10,$10,$11,$10,$10,$10,$11,$10,$10,$10,$10,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0    
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$10,$10,$10,$11,$10,$10,$10,$11,$10,$10,$10,$10,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0    
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$E,$E,$E,$F,$E,$E,$E,$F,$E,$E,$E,$E,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-    db $18,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$17,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,$0,0
-
-
-SECTION "GENERIC_VARS", WRAM0
-    GenericCntr:db
-    GenericCntr2:db
-    FrameCntr:db
-    ShiftedByte:db
-    GenericWord:dw
-    GameState:db;0 puzzling, 1 win, 2 game over
-
-SECTION "TIMER_VARS", WRAM0
-    TimerDownMin:db
-    TimerDownSec:db
-    TimerCntr16thSec:db
-    TimerHasReset:db
-
-SECTION "PUZZLE_DRAWING_VARS", WRAM0
-    DrawNumsState:db
-    DrawNumstartAdr:dw
-    DrawNumsPuzzleStartAdr:dw
-
-SECTION "CURSOR_VARS", WRAM0
-    CursorPositionY:db
-    CursorPositionX:db
-    CursorGridPositionY:db
-    CursorGridPositionX:db
-    CursorTileOffset:dw
-
-SECTION "INPUT_VARS", WRAM0
-    CurrentBTNS:db
-    NewBTNS:db
-    PrevBTNS:db
-
-SECTION "PUZZLE_VARS", WRAM0
-    CurrentTile:db
-    OriginalTileID:db
-    CurrentPuzzle:dw
-    PuzzleInMem:ds 18
-    CurrentHeartTileAdr:dw
