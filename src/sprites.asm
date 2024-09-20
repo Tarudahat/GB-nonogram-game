@@ -1,7 +1,13 @@
 INCLUDE "./src/include/hardware.inc"
 
-SECTION "Sprites", ROM0
+SECTION "CURSOR_VARS", WRAM0
+CursorPositionY::db
+CursorPositionX::db
+CursorGridPositionY::db
+CursorGridPositionX::db
+CursorTileOffset::dw
 
+SECTION "Sprites", ROM0
 ClearOAM::
     ld a, 0
     ld b, 160

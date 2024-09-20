@@ -1,5 +1,6 @@
-SECTION "MoreHLinst", ROM0
+INCLUDE "./src/include/game_constants.inc"
 
+SECTION "MoreHLinstr", ROM0
 ;load DE into a WORD at HL
 Ld_word_HL_DE::
     ld a,e
@@ -57,7 +58,7 @@ SetHLPrevRow::
     ld a, l
     sub a, 32
     ld l, a
-    sbc a, h
+    adc a, h
     sub l
     ld h, a
     ret

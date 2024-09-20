@@ -1,7 +1,11 @@
-INCLUDE "./src/include/gameConstants.inc"
+INCLUDE "./src/include/game_constants.inc"
+
+SECTION "PUZZLE_DRAWING_VARS", WRAM0
+DrawNumsState::db
+DrawNumstartAdr::dw
+DrawNumsPuzzleStartAdr::dw
 
 SECTION "DrawPuzzles", ROM0
-
 ;de src, hl dst, c cntr, b cntr
 DrawRows12x12::
     ld c, 4
@@ -282,7 +286,7 @@ DrawPuzzle::
     ;put down a black tile (or don't depending on Carry)
     ld [hl], 0
     jr nc, .NoPutTile
-    ld [hl], BlackTileID
+    ld [hl], BLACK_TILE_ID
 .NoPutTile
     dec hl
 
@@ -345,7 +349,7 @@ jr NZ, .MainLoop
     ;put down a black tile (or don't depending on Carry)
     ld [hl], 0
     jr nc, .NoPutTile2
-    ld [hl], BlackTileID
+    ld [hl], BLACK_TILE_ID
 .NoPutTile2
     dec hl
 

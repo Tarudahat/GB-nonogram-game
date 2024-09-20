@@ -1,5 +1,11 @@
-SECTION "HandlePuzzles", ROM0
+SECTION "PUZZLE_VARS", WRAM0
+CurrentTile::db
+OriginalTileID::db
+CurrentPuzzle::dw
+PuzzleInMem::ds 18
+CurrentHeartTileAdr::dw
 
+SECTION "HandlePuzzles", ROM0
 ;eats a, b, d, e
 SetTileAtCursor2OGTile::
     ;load tileID at cursor into a
@@ -118,34 +124,3 @@ SetCurrentPuzzle::
     call Ld_word_HL_DE
 
     ret
-
-ScreenWipe0::
-    ld de, 32-18
-
-    ld a, [GenericWord+1]
-    ld h, a
-    ld a, [GenericWord]
-    ld l, a
-
-    ld a, [CurrentTile]
-    ld [hl], a
-    
-    inc hl
-    ld a, [hl]
-    cp a, $17
-
-    jr nz, .NotAtRightBorderYet
-    add hl, de
-.NotAtRightBorderYet
-
-    ld a, h
-    ld [GenericWord+1], a
-    ld a, l
-    ld [GenericWord], a
-
-    ret
-
-
-
-
-

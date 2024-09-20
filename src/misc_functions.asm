@@ -47,56 +47,6 @@ CpMem::
 .KnownRet
     ret nz
 
-
-UpdateTimer::
-    ;check if Timer intr is requested
-    ldh a, [$FF0F]
-    bit 2, a
-    jr z, .TimerIntrNotRequested
-    
-    ld a, [TimerCntr16thSec]
-    inc a
-    
-    cp a, 16;maybe set to 16?
-    jr nz, .NoIncSecCntr
-    
-    ld a, [TimerDownSec]
-    dec a
-    daa
-    ld [TimerDownSec], a
-    
-    cp a, $F9
-    jr nz, .ResetTimerTo60
-    ld a, [TimerDownMin]
-    dec a
-    ld [TimerDownMin], a
-    
-    ld a, $99
-    ;ld a, $59
-    ld [TimerDownSec], a
-
-    ld a, 1
-    ld [TimerHasReset], a
-.ResetTimerTo60
-
-    xor a
-.NoIncSecCntr
-    ld [TimerCntr16thSec], a
-    ldh a, [$FF0F]
-    and a, %1111_1011;reset the Timer intrpt
-    ldh [$FF0F], a
-.TimerIntrNotRequested
-    ret
-
-UpdateFrameCntr::
-    ;count down the input cooldown timer
-    ld a, [FrameCntr]
-    dec a
-    jr z, .DontCountDown_FrameCntr
-    ld [FrameCntr], a
-    .DontCountDown_FrameCntr
-    ret
-
 ;de src, hl dst
 DrawString::
     call WaitStartVBlank
@@ -108,16 +58,43 @@ DrawString::
 
     ld a, [de]
     
-    cp a, 255
+    cp a, 255;terminator char
     jr z, .Return
 
     inc de
 
     ld [hli], a
 
-    ld a, 5;set the cooldown to 3 frames per char
+    ld a, 5;set the cooldown to 5 frames per char
     ld [FrameCntr], a
 
     jr DrawString
 .Return
+    ret
+
+
+ScreenWipe0::
+    ld de, 32-18
+
+    ld a, [GenericWord+1]
+    ld h, a
+    ld a, [GenericWord]
+    ld l, a
+
+    ld a, [CurrentTile]
+    ld [hl], a
+    
+    inc hl
+    ld a, [hl]
+    cp a, $17
+
+    jr nz, .NotAtRightBorderYet
+    add hl, de
+.NotAtRightBorderYet
+
+    ld a, h
+    ld [GenericWord+1], a
+    ld a, l
+    ld [GenericWord], a
+
     ret

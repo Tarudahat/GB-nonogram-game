@@ -1,6 +1,6 @@
 INCLUDE "./src/include/hardware.inc"
-INCLUDE "./src/include/gameConstants.inc"
-
+INCLUDE "./src/include/game_constants.inc"
+    
 SECTION "Header", ROM0[$100]
     jp EntryPoint
     ds $150 - @, 0
@@ -15,18 +15,16 @@ EntryPoint:
     ld a, %10000000
 	ld [rNR52], a
 
-
-
     ;Setup timer registers
-    ld a, %0000_0100
-    ldh [$FF07], a;set TIMA incrementation rate to 4096Hz
+    ld a, TACF_START;%0000_0100
+    ldh [rTAC], a;set TIMA incrementation rate (at $FF07) to 4096Hz
     xor a
-    ldh [$FF06], a;set Timer modulo to 0 so the Timer interupt will be requested every 1/16th of a sec
+    ldh [rTMA], a;set Timer modulo (at $FF06) to 0 so the Timer interupt will be requested every 1/16th of a sec
     
     ;init some timer values
     xor a
     ld [TimerCntr16thSec],a
-    ld a, InputCD
+    ld a, INPUT_COOLDOWN
     ld [FrameCntr], a
 
     ;wait StartVBlank
@@ -55,7 +53,7 @@ EntryPoint:
     ld [rLCDC], a
 
     ; During the first (blank) frame, initialize display registers
-    ld a, %11100100
+    ld a, %11100100;dflt pallet
     ld [rBGP], a
     ld a, %11100100
     ld [rOBP0], a  
@@ -99,7 +97,7 @@ TempLoop:
     ld a, [FrameCntr]
     cp a, 1
     jr nz, .NoSetCD
-    ld a, InputCD
+    ld a, INPUT_COOLDOWN
     ld [FrameCntr], a;temp
     .NoSetCD
 
@@ -108,7 +106,7 @@ TempLoop:
     ld b, a
 
     ld a, [GenericCntr]
-    
+
     ;check B
     bit 1, b
     jr Z, .NotB
@@ -164,7 +162,6 @@ TempLoop:
 
 
 PuzzleState:
-    nop
     call WaitStartVBlank
 
     ;turn off lcd
@@ -195,18 +192,18 @@ PuzzleState:
     inc de;return de to the start of the puzzle
 
     ;draw num rows 
-    ld de, DrawRowsStartAdr
+    ld de, DRAW_ROWS_START_ADR
     ld hl, DrawNumstartAdr
     call Ld_word_HL_DE
 
     ld hl, CurrentPuzzle
     call Ld_DE_word_HL;ld de, [CurrentPuzzle]
-    ld hl, DrawRowsStartAdr
+    ld hl, DRAW_ROWS_START_ADR
 
     call DrawRows12x12
     
     ;draw num columns
-    ld de, DrawColumnsStartAdr
+    ld de, DRAW_COLLUMNS_START_ADR
     ld hl, DrawNumstartAdr
     call Ld_word_HL_DE
 
@@ -225,7 +222,7 @@ PuzzleState:
     ld hl, DrawNumsPuzzleStartAdr
     call Ld_word_HL_DE
 
-    ld hl, DrawColumnsStartAdr
+    ld hl, DRAW_COLLUMNS_START_ADR
 
     call DrawColumns12x12
 
@@ -240,9 +237,9 @@ PuzzleState:
     ld [rOBP0], a  
 
     ;init some values
-    ld a, HIGH(HeartsStartTileAdr)
+    ld a, HIGH(HEARTS_TILE_ADR)
     ld [CurrentHeartTileAdr+1], a
-    ld a, LOW(HeartsStartTileAdr)
+    ld a, LOW(HEARTS_TILE_ADR)
     ld [CurrentHeartTileAdr], a
 
     ld a, $98
@@ -272,7 +269,7 @@ Main:
     call CpMem
 
     jr nz, .NotYetWin
-    ld a, WinTileID
+    ld a, WIN_TILE_ID
     ld [CurrentTile], a
 
     ld a, 1;win
@@ -308,9 +305,9 @@ Main:
     or a, b
     jp nz, .StillAlive
     ld a, 1
-    ld [TimerTileAdr], a;set the timer to 0 so user won't rage when they lose with "one second to spare"
+    ld [TIMER_TILE_ADR], a;set the timer to 0 so user won't rage when they lose with "one second to spare"
     
-    ld a, LoseTileID
+    ld a, LOSE_TILE_ID
     ld [CurrentTile], a
 
     ld a, 2;lose
@@ -335,17 +332,17 @@ Main:
     ld a, [TimerDownSec]
     and a, $0F
     inc a
-    ld [TimerTileAdr], a
+    ld [TIMER_TILE_ADR], a
 
     ld a, [TimerDownSec]
     and a, $F0
     swap a
     inc a
-    ld [TimerTileAdr-1], a
+    ld [TIMER_TILE_ADR-1], a
 
     ld a, [TimerDownMin]
     inc a
-    ld [TimerTileAdr-2], a
+    ld [TIMER_TILE_ADR-2], a
 
     ;handle input delay
     ld a, [FrameCntr]
@@ -361,7 +358,7 @@ Main:
     ld a, [FrameCntr]
     cp a, 1
     jr nz, .NoSetCD
-    ld a, InputCD
+    ld a, INPUT_COOLDOWN
     ld [FrameCntr], a;temp
 .NoSetCD
 
@@ -471,11 +468,11 @@ Main:
 
     call SetTileAtCursor2OGTile
 
-    cp a, FilledTileID;is not Filled in??
+    cp a, FILLED_TILE_ID;is not Filled in??
     jr NC, .DontFillTile
-    ld [hl], FilledTileID
+    ld [hl], FILLED_TILE_ID
 
-    ld a, FilledTileID
+    ld a, FILLED_TILE_ID
     ld [CurrentTile], a
 .DontFillTile
     call TogglePuzzleBit
@@ -492,10 +489,10 @@ Main:
 
     call SetTileAtCursor2OGTile
 
-    cp a, XTileID;is not X-ed??
+    cp a, X_TILE_ID;is not X-ed??
     jr NC, .NoPutX
-    ld [hl], XTileID;put down X tile
-    ld a, XTileID
+    ld [hl], X_TILE_ID;put down X tile
+    ld a, X_TILE_ID
     ld [CurrentTile], a
 
     ld a, %1111_0_111
@@ -509,10 +506,10 @@ Main:
     ld [rNR44],a
 
 .NoPutX
-    cp a, FilledTileID
+    cp a, FILLED_TILE_ID
     jr NZ, .NotB
-    ld [hl], XTileID
-    ld a, XTileID
+    ld [hl], X_TILE_ID
+    ld a, X_TILE_ID
     ld [CurrentTile], a
     call TogglePuzzleBit
 .NotB
@@ -522,7 +519,7 @@ Main:
     ld [rOBP0], a  
 
     ld a, [CurrentTile]
-    cp a, FilledTileID
+    cp a, FILLED_TILE_ID
     jr NZ, .NoInvertCursorPal
 
     ld a, %00011011
@@ -598,8 +595,6 @@ WaitTillHeatDeathOfUniverse:
 
     jr WaitTillHeatDeathOfUniverse
 
-
-INCLUDE "./src/include/charmap.inc"
 
 INCLUDE "./src/assets/Sprites.z80"
 INCLUDE "./src/assets/TilesSet0.z80"

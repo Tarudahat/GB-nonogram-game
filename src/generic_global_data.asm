@@ -7,36 +7,6 @@ ShiftedByte::db
 GenericWord::dw
 GameState::db;0 puzzling, 1 win, 2 game over
 
-SECTION "TIMER_VARS", WRAM0
-TimerDownMin::db
-TimerDownSec::db
-TimerCntr16thSec::db
-TimerHasReset::db
-
-SECTION "PUZZLE_DRAWING_VARS", WRAM0
-DrawNumsState::db
-DrawNumstartAdr::dw
-DrawNumsPuzzleStartAdr::dw
-
-SECTION "CURSOR_VARS", WRAM0
-CursorPositionY::db
-CursorPositionX::db
-CursorGridPositionY::db
-CursorGridPositionX::db
-CursorTileOffset::dw
-
-SECTION "INPUT_VARS", WRAM0
-CurrentBTNS::db
-NewBTNS::db
-PrevBTNS::db
-
-SECTION "PUZZLE_VARS", WRAM0
-CurrentTile::db
-OriginalTileID::db
-CurrentPuzzle::dw
-PuzzleInMem::ds 18
-CurrentHeartTileAdr::dw
-
 
 SECTION "BG", ROM0
 EmptyMap::

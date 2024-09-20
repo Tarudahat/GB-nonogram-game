@@ -1,7 +1,11 @@
 INCLUDE "./src/include/hardware.inc"
 
-SECTION "Input", ROM0
+SECTION "INPUT_VARS", WRAM0
+CurrentBTNS::db
+NewBTNS::db
+PrevBTNS::db
 
+SECTION "Input", ROM0
 UpdateBTNS::
     ld  a, $20 ;set get dpad flag
     call .GetBTNS

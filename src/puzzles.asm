@@ -1,5 +1,6 @@
-SECTION "Puzzles", ROM0
+INCLUDE "./src/include/charmap.inc"
 
+SECTION "Puzzles", ROM0
 PuzzlesLUT::
     dw Puzzle0Start
     dw Puzzle1Start
